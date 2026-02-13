@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>pocketpip</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b8c5a'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-size='52' font-weight='normal' font-style='italic' fill='white' text-anchor='middle'%3Ep%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M10 50 A 40 40 0 0 0 90 50 A 40 40 0 0 0 50 10 L 10 10 Z' fill='%235b8c5a'/%3E%3Ctext x='48' y='72' font-family='Nunito, sans-serif' font-size='60' font-weight='800' fill='white' text-anchor='middle'%3Ep%3C/text%3E%3C/svg%3E" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root, [data-theme="light"] {
@@ -42,7 +42,22 @@
   header{padding:28px 0 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-subtle)}
   .header-left{display:flex;align-items:center;gap:14px}
   .logo{display:flex;align-items:center;gap:10px;cursor:default}
-  .logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-style:italic;font-size:17px;color:#fff}
+  .logo-mark {
+    width: 34px;
+    height: 34px;
+    /* This creates the organic seed/leaf shape! */
+    border-radius: 50% 50% 50% 6px; 
+    background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    color: #fff;
+    padding-bottom: 2px; /* Centers the 'p' visually */
+    box-shadow: 0 4px 12px var(--accent-glow);
+  }
   .logo-text{font-family:var(--font-display);font-size:18px;font-weight:400;color:var(--text)}
 
   /* CHILD SELECTOR */
@@ -245,7 +260,7 @@
 <div class="app">
   <header>
     <div class="header-left">
-      <div class="logo"><div class="logo-mark">m</div><div class="logo-text">pocketpip</div></div>
+      <div class="logo"><div class="logo-mark">p</div><div class="logo-text">pocketpip</div></div>
       <div class="child-selector" id="child-selector">
         <button class="child-active-btn" id="child-active-btn"><span id="child-active-name">Malcolm</span><span class="child-arrow">&#9662;</span></button>
         <div class="child-dropdown" id="child-dropdown"></div>
