@@ -20,6 +20,7 @@
     --cat-first: #7a8c5a; --cat-first-bg: rgba(122,140,90,.12);
     --cat-funny: #c49a3c; --cat-funny-bg: rgba(196,154,60,.12);
     --cat-note: #6e8898; --cat-note-bg: rgba(110,136,152,.10);
+    --cat-neat: #9a7b5a; --cat-neat-bg: rgba(154,123,90,.10);
     --danger: #b85a52; --danger-bg: rgba(184,90,82,.08);
     --undo-bg: #33312a; --undo-text: #f5f2ec; --modal-overlay: rgba(245,242,236,.85);
     --shadow-sm: 0 1px 3px rgba(0,0,0,.05); --shadow-md: 0 4px 16px rgba(0,0,0,.06); --shadow-lg: 0 8px 32px rgba(0,0,0,.08);
@@ -32,6 +33,7 @@
     --cat-first: #97ad72; --cat-first-bg: rgba(151,173,114,.14);
     --cat-funny: #d4b462; --cat-funny-bg: rgba(212,180,98,.14);
     --cat-note: #8aa4b6; --cat-note-bg: rgba(138,164,182,.12);
+    --cat-neat: #c4a67a; --cat-neat-bg: rgba(196,166,122,.12);
     --danger: #cc6e66; --danger-bg: rgba(204,110,102,.10);
     --undo-bg: #e6e3d9; --undo-text: #1a1916; --modal-overlay: rgba(26,25,22,.88);
     --shadow-sm: 0 1px 3px rgba(0,0,0,.2); --shadow-md: 0 4px 16px rgba(0,0,0,.25); --shadow-lg: 0 8px 32px rgba(0,0,0,.35);
@@ -113,6 +115,7 @@
   .cat-chip[data-cat="first"].selected{color:var(--cat-first);background:var(--cat-first-bg);border-color:rgba(196,149,106,.35)}
   .cat-chip[data-cat="funny"].selected{color:var(--cat-funny);background:var(--cat-funny-bg);border-color:rgba(184,137,76,.35)}
   .cat-chip[data-cat="note"].selected{color:var(--cat-note);background:var(--cat-note-bg);border-color:rgba(138,154,122,.3)}
+  .cat-chip[data-cat="neat"].selected{color:var(--cat-neat);background:var(--cat-neat-bg);border-color:rgba(154,123,90,.3)}
 
   .capture-meta{width:100%;display:flex;gap:10px;margin-top:10px;align-items:flex-start}
   .tag-container{flex:1;position:relative;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;transition:all var(--transition);min-height:40px}
@@ -179,6 +182,7 @@
   .cat-badge.first{background:var(--cat-first-bg);color:var(--cat-first)}
   .cat-badge.funny{background:var(--cat-funny-bg);color:var(--cat-funny)}
   .cat-badge.note{background:var(--cat-note-bg);color:var(--cat-note)}
+  .cat-badge.neat{background:var(--cat-neat-bg);color:var(--cat-neat)}
 
   .item-actions{display:flex;gap:6px;flex-wrap:wrap}
   .item-action-btn{font-family:var(--font);font-size:12px;font-weight:500;padding:5px 12px;border:1px solid var(--border-subtle);background:transparent;border-radius:6px;cursor:pointer;transition:all var(--transition);-webkit-tap-highlight-color:transparent}
@@ -197,6 +201,7 @@
   .review-cat-btn[data-cat="first"].selected{color:var(--cat-first);background:var(--cat-first-bg);border-color:rgba(196,149,106,.35)}
   .review-cat-btn[data-cat="funny"].selected{color:var(--cat-funny);background:var(--cat-funny-bg);border-color:rgba(184,137,76,.35)}
   .review-cat-btn[data-cat="note"].selected{color:var(--cat-note);background:var(--cat-note-bg);border-color:rgba(138,154,122,.3)}
+  .review-cat-btn[data-cat="neat"].selected{color:var(--cat-neat);background:var(--cat-neat-bg);border-color:rgba(154,123,90,.3)}
 
   /* TIMELINE */
   .timeline-controls{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -217,6 +222,7 @@
   .cat-filter-btn.active-first{background:var(--cat-first-bg);color:var(--cat-first);border-color:rgba(196,149,106,.35)}
   .cat-filter-btn.active-funny{background:var(--cat-funny-bg);color:var(--cat-funny);border-color:rgba(184,137,76,.35)}
   .cat-filter-btn.active-note{background:var(--cat-note-bg);color:var(--cat-note);border-color:rgba(138,154,122,.3)}
+  .cat-filter-btn.active-neat{background:var(--cat-neat-bg);color:var(--cat-neat);border-color:rgba(154,123,90,.3)}
 
   .sort-select{font-family:var(--font);font-size:12px;padding:4px 8px;border:1px solid var(--border-subtle);background:var(--bg-surface);border-radius:6px;color:var(--text-secondary);cursor:pointer;outline:none}
   .timeline-count{font-size:12px;color:var(--text-muted);font-family:var(--mono);margin-bottom:14px}
@@ -284,15 +290,16 @@
   </header>
   <main>
     <section id="view-capture" class="capture-view">
-      <div class="capture-prompt" id="capture-prompt">what just happened?</div>
+      <div class="capture-prompt" id="capture-prompt">new pip for Malcolm</div>
       <div class="capture-input-wrap">
-        <textarea class="capture-input" id="capture-input" placeholder="A moment worth remembering..." rows="2"></textarea>
+        <textarea class="capture-input" id="capture-input" placeholder="a small thing worth keeping..." rows="2"></textarea>
         <div class="capture-char-count" id="char-count">0</div>
       </div>
       <div class="category-bar" id="category-bar">
         <button class="cat-chip" data-cat="quote">Quote</button>
         <button class="cat-chip" data-cat="first">First</button>
         <button class="cat-chip" data-cat="funny">Funny</button>
+        <button class="cat-chip" data-cat="neat">Neat</button>
         <button class="cat-chip" data-cat="note">Note</button>
       </div>
       <div class="capture-meta">
@@ -300,14 +307,14 @@
           <input type="text" class="tag-select-input" id="tag-input" placeholder="Tags..." autocomplete="off">
           <div class="tag-dropdown" id="tag-dropdown"></div>
         </div>
-        <button class="capture-btn" id="capture-btn">Capture</button>
+        <button class="capture-btn" id="capture-btn">pocket it</button>
       </div>
       <div class="date-override-row">
         <span class="date-override-label">When:</span>
         <input type="datetime-local" class="date-override-input" id="date-override">
         <button class="date-now-btn" id="date-now-btn">now</button>
       </div>
-      <div class="capture-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> capture &middot; <kbd>/</kbd> focus</div>
+      <div class="capture-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> pocket it &middot; <kbd>/</kbd> focus</div>
     </section>
     <section id="view-review" class="hidden">
       <div class="review-header"><h2 class="review-title">Review</h2><span class="review-count" id="review-count"></span></div>
@@ -324,6 +331,7 @@
           <button class="cat-filter-btn" data-cat="quote">Quotes</button>
           <button class="cat-filter-btn" data-cat="first">Firsts</button>
           <button class="cat-filter-btn" data-cat="funny">Funny</button>
+          <button class="cat-filter-btn" data-cat="neat">Neat</button>
           <button class="cat-filter-btn" data-cat="note">Notes</button>
           <button class="cat-filter-btn" data-cat="uncategorised">Inbox</button>
         </div>
@@ -357,7 +365,7 @@ const STORAGE_KEY = 'pocketpip_data',
       CLOUD_KEY_STORAGE = 'pocketpip_cloud_key',
       THEME_KEY = 'pocketpip_theme',
       ACTIVE_CHILD_KEY = 'pocketpip_active_child',
-      CATEGORIES = ['quote','first','funny','note'];
+      CATEGORIES = ['quote','first','funny','neat','note'];
 
 function loadData(){try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){const d=JSON.parse(raw);if(!Array.isArray(d.items))d.items=[];if(!Array.isArray(d.tags))d.tags=[];if(!Array.isArray(d.children))d.children=['Malcolm'];d.items=d.items.filter(i=>i&&typeof i.id==='string'&&typeof i.text==='string');d.items.forEach(i=>{if(!Array.isArray(i.tags))i.tags=i.tag?[i.tag]:[];if(!i.category)i.category='';if(!i.createdAt)i.createdAt=new Date().toISOString();if(typeof i.pinned==='undefined')i.pinned=false;if(!i.childName)i.childName=d.children[0]||'Malcolm';delete i.tag});const P=30*24*60*60*1000;d.items=d.items.filter(i=>{if(!i._deleted)return true;if(!i._deletedAt)return false;return(Date.now()-new Date(i._deletedAt).getTime())<P});return d}}catch(e){console.error('Load error:',e)}return{children:['Malcolm'],tags:[],items:[]}}
 
@@ -367,7 +375,7 @@ let activeChild=localStorage.getItem(ACTIVE_CHILD_KEY)||data.children[0]||'Malco
 if(!data.children.includes(activeChild)){activeChild=data.children[0]||'Malcolm';if(!data.children.includes(activeChild))data.children.push(activeChild)}
 
 // CHILD MANAGEMENT
-function setActiveChild(name){activeChild=name;localStorage.setItem(ACTIVE_CHILD_KEY,name);document.getElementById('child-active-name').textContent=name;document.title='pocketpip \u2014 '+name;document.getElementById('capture-prompt').textContent='what did '+name+' just do?';renderChildDropdown();renderCurrentView()}
+function setActiveChild(name){activeChild=name;localStorage.setItem(ACTIVE_CHILD_KEY,name);document.getElementById('child-active-name').textContent=name;document.title='pocketpip \u2014 '+name;document.getElementById('capture-prompt').textContent='new pip for '+name;renderChildDropdown();renderCurrentView()}
 
 function addChild(name){const c=name.trim();if(!c)return false;if(data.children.some(x=>x.toLowerCase()===c.toLowerCase()))return false;data.children.push(c);data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));saveData(data);setActiveChild(c);return true}
 
@@ -435,7 +443,7 @@ document.querySelectorAll('#category-bar .cat-chip').forEach(chip=>{chip.addEven
 function renderActiveTags(){tagContainer.querySelectorAll('.tag-chip').forEach(c=>c.remove());activeTags.forEach((t,i)=>{const chip=document.createElement('div');chip.className='tag-chip';chip.innerHTML=eh(t)+' <span class="tag-remove" data-index="'+i+'">&times;</span>';tagContainer.insertBefore(chip,tagInput)})}
 tagContainer.addEventListener('click',e=>{if(e.target.classList.contains('tag-remove')){activeTags.splice(parseInt(e.target.dataset.index),1);renderActiveTags()}else if(e.target===tagContainer)tagInput.focus()});
 function addActiveTag(s){const c=s.trim();if(c&&!activeTags.includes(c)){activeTags.push(c);renderActiveTags()}tagInput.value=''}
-function doCapture(){const text=captureInput.value.trim();if(!text){captureInput.focus();return}if(tagInput.value.trim())addActiveTag(tagInput.value);let d=null;if(dateOverride.value)d=new Date(dateOverride.value).toISOString();addItem(text,selectedCategory,[...activeTags],d);captureInput.value='';captureInput.style.height='auto';charCount.textContent='0';activeTags=[];renderActiveTags();tagInput.value='';tagDropdown.classList.remove('open');selectedCategory='';document.querySelectorAll('#category-bar .cat-chip').forEach(c=>c.classList.remove('selected'));setDateNow();showFlash('Moment captured');captureInput.focus();updateBadge();updateStats()}
+function doCapture(){const text=captureInput.value.trim();if(!text){captureInput.focus();return}if(tagInput.value.trim())addActiveTag(tagInput.value);let d=null;if(dateOverride.value)d=new Date(dateOverride.value).toISOString();addItem(text,selectedCategory,[...activeTags],d);captureInput.value='';captureInput.style.height='auto';charCount.textContent='0';activeTags=[];renderActiveTags();tagInput.value='';tagDropdown.classList.remove('open');selectedCategory='';document.querySelectorAll('#category-bar .cat-chip').forEach(c=>c.classList.remove('selected'));setDateNow();showFlash('pip pocketed');captureInput.focus();updateBadge();updateStats()}
 document.getElementById('capture-btn').addEventListener('click',doCapture);
 captureInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();doCapture()}});
 
@@ -461,7 +469,7 @@ function autoSize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px
 
 // TIMELINE
 let activeCat='all';
-document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(b=>{b.addEventListener('click',()=>{activeCat=b.dataset.cat;document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(x=>x.className='cat-filter-btn');const m={all:'active-all',quote:'active-quote',first:'active-first',funny:'active-funny',note:'active-note',uncategorised:'active-all'};b.classList.add(m[activeCat]||'active-all');renderTimeline()})});
+document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(b=>{b.addEventListener('click',()=>{activeCat=b.dataset.cat;document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(x=>x.className='cat-filter-btn');const m={all:'active-all',quote:'active-quote',first:'active-first',funny:'active-funny',neat:'active-neat',note:'active-note',uncategorised:'active-all'};b.classList.add(m[activeCat]||'active-all');renderTimeline()})});
 document.getElementById('sort-select').addEventListener('change',()=>renderTimeline());
 
 function renderTimeline(){const query=document.getElementById('search-input').value,tag=filterTagInput.value,sort=document.getElementById('sort-select').value,results=searchItems(query,tag,activeCat,sort),list=document.getElementById('timeline-list');document.getElementById('timeline-count').textContent=results.length+' moment'+(results.length!==1?'s':'');
