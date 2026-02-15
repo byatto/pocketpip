@@ -4,30 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>pocketpip</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M10 50 A 40 40 0 0 0 90 50 A 40 40 0 0 0 50 10 L 10 10 Z' fill='%235b8c5a'/%3E%3Ctext x='48' y='72' font-family='Nunito, sans-serif' font-size='60' font-weight='800' fill='white' text-anchor='middle'%3Ep%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='url(%23g)'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%237a8c5a'/%3E%3Cstop offset='100%25' stop-color='%2364744a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='50' y='70' font-family='Georgia,serif' font-size='56' font-weight='normal' font-style='italic' fill='white' fill-opacity='.95' text-anchor='middle'%3Ep%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#7a8c5a">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root, [data-theme="light"] {
-    --bg: #f4f7f4; --bg-surface: #ffffff; --bg-elevated: #ffffff; --bg-hover: #eaf0ea; --bg-nav: #e4ece4; 
-    --border: #d0dfd0; --border-subtle: #dfe8df; --text: #2d3b2d; --text-secondary: #526652; --text-muted: #8ba38b; 
-    --accent: #5b8c5a; --accent-dim: #4a7549; --accent-glow: rgba(91,140,90,.12); 
-    --cat-quote: #788566; --cat-quote-bg: rgba(120,133,102,.10); 
-    --cat-first: #5b8c5a; --cat-first-bg: rgba(91,140,90,.12); 
-    --cat-funny: #e09f3e; --cat-funny-bg: rgba(224,159,62,.12); 
-    --cat-note: #64839c; --cat-note-bg: rgba(100,131,156,.10); 
-    --danger: #c95c55; --danger-bg: rgba(201,92,85,.08); 
-    --undo-bg: #2d3b2d; --undo-text: #f4f7f4; --modal-overlay: rgba(244,247,244,.85);
+    --bg: #f5f2ec; --bg-surface: #fdfcf9; --bg-elevated: #ffffff; --bg-hover: #ede9e0; --bg-nav: #e8e3d9;
+    --border: #d5cfc3; --border-subtle: #dfd9cf; --text: #33312a; --text-secondary: #5e5a4e; --text-muted: #9a9484;
+    --accent: #7a8c5a; --accent-dim: #64744a; --accent-glow: rgba(122,140,90,.12);
+    --cat-quote: #7a7260; --cat-quote-bg: rgba(122,114,96,.10);
+    --cat-first: #7a8c5a; --cat-first-bg: rgba(122,140,90,.12);
+    --cat-funny: #c49a3c; --cat-funny-bg: rgba(196,154,60,.12);
+    --cat-note: #6e8898; --cat-note-bg: rgba(110,136,152,.10);
+    --danger: #b85a52; --danger-bg: rgba(184,90,82,.08);
+    --undo-bg: #33312a; --undo-text: #f5f2ec; --modal-overlay: rgba(245,242,236,.85);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.05); --shadow-md: 0 4px 16px rgba(0,0,0,.06); --shadow-lg: 0 8px 32px rgba(0,0,0,.08);
   }
   [data-theme="dark"] {
-    --bg: #161a16; --bg-surface: #1e241e; --bg-elevated: #252c25; --bg-hover: #2a332a; --bg-nav: #1a201a; 
-    --border: #334033; --border-subtle: #283328; --text: #e4ece4; --text-secondary: #a1bba1; --text-muted: #6e856e; 
-    --accent: #7ebc7d; --accent-dim: #679e66; --accent-glow: rgba(126,188,125,.12); 
-    --cat-quote: #9fa88f; --cat-quote-bg: rgba(159,168,143,.12); 
-    --cat-first: #7ebc7d; --cat-first-bg: rgba(126,188,125,.14); 
-    --cat-funny: #ebb86c; --cat-funny-bg: rgba(235,184,108,.14); 
-    --cat-note: #8ba4b8; --cat-note-bg: rgba(139,164,184,.12); 
-    --danger: #d4726a; --danger-bg: rgba(212,114,106,.10); 
-    --undo-bg: #e4ece4; --undo-text: #161a16; --modal-overlay: rgba(22,26,22,.88);
+    --bg: #1a1916; --bg-surface: #23221e; --bg-elevated: #2b2a25; --bg-hover: #32302a; --bg-nav: #1f1e1a;
+    --border: #3b3931; --border-subtle: #302e28; --text: #e6e3d9; --text-secondary: #a8a494; --text-muted: #6e6b5e;
+    --accent: #97ad72; --accent-dim: #7e9460; --accent-glow: rgba(151,173,114,.12);
+    --cat-quote: #b0a890; --cat-quote-bg: rgba(176,168,144,.12);
+    --cat-first: #97ad72; --cat-first-bg: rgba(151,173,114,.14);
+    --cat-funny: #d4b462; --cat-funny-bg: rgba(212,180,98,.14);
+    --cat-note: #8aa4b6; --cat-note-bg: rgba(138,164,182,.12);
+    --danger: #cc6e66; --danger-bg: rgba(204,110,102,.10);
+    --undo-bg: #e6e3d9; --undo-text: #1a1916; --modal-overlay: rgba(26,25,22,.88);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.2); --shadow-md: 0 4px 16px rgba(0,0,0,.25); --shadow-lg: 0 8px 32px rgba(0,0,0,.35);
   }
   :root {
     --radius: 10px; --radius-lg: 16px; --transition: 180ms ease; 
@@ -45,18 +52,18 @@
   .logo-mark {
     width: 34px;
     height: 34px;
-    /* This creates the organic seed/leaf shape! */
-    border-radius: 50% 50% 50% 6px; 
+    border-radius: 9px;
     background: linear-gradient(135deg, var(--accent), var(--accent-dim));
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Nunito', sans-serif;
-    font-weight: 800;
-    font-size: 22px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
     color: #fff;
-    padding-bottom: 2px; /* Centers the 'p' visually */
-    box-shadow: 0 4px 12px var(--accent-glow);
+    padding-bottom: 1px;
+    box-shadow: 0 2px 8px var(--accent-glow);
   }
   .logo-text{font-family:var(--font-display);font-size:18px;font-weight:400;color:var(--text)}
 
@@ -122,7 +129,7 @@
   .tag-option:hover,.tag-option.highlighted{background:var(--bg-hover);color:var(--text)}
   .tag-option.create-new{color:var(--accent);border-top:1px solid var(--border-subtle);font-weight:500}
 
-  .capture-btn{font-family:var(--font);font-size:16px;font-weight:600;padding:10px 22px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#fff;border:none;border-radius:var(--radius);cursor:pointer;transition:all var(--transition);white-space:nowrap;height:40px;box-shadow:0 2px 8px rgba(196,149,106,.2)}
+  .capture-btn{font-family:var(--font);font-size:14px;font-weight:600;padding:10px 22px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#fff;border:none;border-radius:var(--radius);cursor:pointer;transition:all var(--transition);white-space:nowrap;height:40px;box-shadow:0 2px 8px rgba(196,149,106,.2)}
   .capture-btn:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(196,149,106,.3)}
   .capture-btn:active{transform:translateY(0)}
   .capture-hint{margin-top:16px;font-size:11px;color:var(--text-muted);font-family:var(--mono)}
@@ -279,7 +286,7 @@
     <section id="view-capture" class="capture-view">
       <div class="capture-prompt" id="capture-prompt">what just happened?</div>
       <div class="capture-input-wrap">
-        <textarea class="capture-input" id="capture-input" placeholder="a small thing worth keeping..." rows="2"></textarea>
+        <textarea class="capture-input" id="capture-input" placeholder="A moment worth remembering..." rows="2"></textarea>
         <div class="capture-char-count" id="char-count">0</div>
       </div>
       <div class="category-bar" id="category-bar">
@@ -293,7 +300,7 @@
           <input type="text" class="tag-select-input" id="tag-input" placeholder="Tags..." autocomplete="off">
           <div class="tag-dropdown" id="tag-dropdown"></div>
         </div>
-        <button class="capture-btn" id="capture-btn">pocket it</button>
+        <button class="capture-btn" id="capture-btn">Capture</button>
       </div>
       <div class="date-override-row">
         <span class="date-override-label">When:</span>
@@ -360,7 +367,7 @@ let activeChild=localStorage.getItem(ACTIVE_CHILD_KEY)||data.children[0]||'Malco
 if(!data.children.includes(activeChild)){activeChild=data.children[0]||'Malcolm';if(!data.children.includes(activeChild))data.children.push(activeChild)}
 
 // CHILD MANAGEMENT
-function setActiveChild(name){activeChild=name;localStorage.setItem(ACTIVE_CHILD_KEY,name);document.getElementById('child-active-name').textContent=name;document.title='pocketpip \u2014 '+name;document.getElementById('capture-prompt').textContent='new pip for '+name;renderChildDropdown();renderCurrentView()}
+function setActiveChild(name){activeChild=name;localStorage.setItem(ACTIVE_CHILD_KEY,name);document.getElementById('child-active-name').textContent=name;document.title='pocketpip \u2014 '+name;document.getElementById('capture-prompt').textContent='what did '+name+' just do?';renderChildDropdown();renderCurrentView()}
 
 function addChild(name){const c=name.trim();if(!c)return false;if(data.children.some(x=>x.toLowerCase()===c.toLowerCase()))return false;data.children.push(c);data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));saveData(data);setActiveChild(c);return true}
 
@@ -428,7 +435,7 @@ document.querySelectorAll('#category-bar .cat-chip').forEach(chip=>{chip.addEven
 function renderActiveTags(){tagContainer.querySelectorAll('.tag-chip').forEach(c=>c.remove());activeTags.forEach((t,i)=>{const chip=document.createElement('div');chip.className='tag-chip';chip.innerHTML=eh(t)+' <span class="tag-remove" data-index="'+i+'">&times;</span>';tagContainer.insertBefore(chip,tagInput)})}
 tagContainer.addEventListener('click',e=>{if(e.target.classList.contains('tag-remove')){activeTags.splice(parseInt(e.target.dataset.index),1);renderActiveTags()}else if(e.target===tagContainer)tagInput.focus()});
 function addActiveTag(s){const c=s.trim();if(c&&!activeTags.includes(c)){activeTags.push(c);renderActiveTags()}tagInput.value=''}
-function doCapture(){const text=captureInput.value.trim();if(!text){captureInput.focus();return}if(tagInput.value.trim())addActiveTag(tagInput.value);let d=null;if(dateOverride.value)d=new Date(dateOverride.value).toISOString();addItem(text,selectedCategory,[...activeTags],d);captureInput.value='';captureInput.style.height='auto';charCount.textContent='0';activeTags=[];renderActiveTags();tagInput.value='';tagDropdown.classList.remove('open');selectedCategory='';document.querySelectorAll('#category-bar .cat-chip').forEach(c=>c.classList.remove('selected'));setDateNow();showFlash('in the pocket');captureInput.focus();updateBadge();updateStats()}
+function doCapture(){const text=captureInput.value.trim();if(!text){captureInput.focus();return}if(tagInput.value.trim())addActiveTag(tagInput.value);let d=null;if(dateOverride.value)d=new Date(dateOverride.value).toISOString();addItem(text,selectedCategory,[...activeTags],d);captureInput.value='';captureInput.style.height='auto';charCount.textContent='0';activeTags=[];renderActiveTags();tagInput.value='';tagDropdown.classList.remove('open');selectedCategory='';document.querySelectorAll('#category-bar .cat-chip').forEach(c=>c.classList.remove('selected'));setDateNow();showFlash('Moment captured');captureInput.focus();updateBadge();updateStats()}
 document.getElementById('capture-btn').addEventListener('click',doCapture);
 captureInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();doCapture()}});
 
@@ -445,7 +452,7 @@ document.getElementById('search-input').addEventListener('input',function(){upda
 
 // REVIEW
 let reviewFocusIdx=-1;
-function renderReview(){const list=document.getElementById('review-list'),items=getUncategorised();document.getElementById('review-count').textContent=items.length+' uncategorised';reviewFocusIdx=-1;if(!items.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#9826;</div><h3>all caught up</h3><p>no pips waiting for '+eh(activeChild)+'.</p></div>';return}
+function renderReview(){const list=document.getElementById('review-list'),items=getUncategorised();document.getElementById('review-count').textContent=items.length+' uncategorised';reviewFocusIdx=-1;if(!items.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#9826;</div><h3>All caught up</h3><p>No moments to review for '+eh(activeChild)+'. Go capture some.</p></div>';return}
 list.innerHTML=items.map((item,idx)=>'<div class="item-card" data-id="'+ea(item.id)+'" data-review-idx="'+idx+'"><textarea class="item-text-edit" data-id="'+ea(item.id)+'">'+et(item.text)+'</textarea><div class="item-footer"><div class="item-meta">'+(item.tags||[]).map(t=>'<span class="item-tag">'+eh(t)+'</span>').join('')+'<span>'+formatTime(item.createdAt)+'</span></div><div class="item-actions"><div class="review-cats">'+CATEGORIES.map(c=>'<button class="review-cat-btn '+(item.category===c?'selected':'')+'" data-cat="'+c+'" data-id="'+ea(item.id)+'">'+c.charAt(0).toUpperCase()+c.slice(1)+'</button>').join('')+'</div><button class="item-action-btn delete-type" data-action="delete" data-id="'+ea(item.id)+'">Remove</button></div></div></div>').join('');
 list.querySelectorAll('.review-cat-btn').forEach(b=>{b.addEventListener('click',()=>{updateItem(b.dataset.id,{category:b.dataset.cat});renderReview();updateBadge();updateStats()})});
 list.querySelectorAll('.item-action-btn.delete-type').forEach(b=>{b.addEventListener('click',()=>{const rm=deleteItem(b.dataset.id);if(rm)pushUndo('Moment removed',rm);renderReview();updateBadge();updateStats()})});
@@ -458,7 +465,7 @@ document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(b=>{b.addEvent
 document.getElementById('sort-select').addEventListener('change',()=>renderTimeline());
 
 function renderTimeline(){const query=document.getElementById('search-input').value,tag=filterTagInput.value,sort=document.getElementById('sort-select').value,results=searchItems(query,tag,activeCat,sort),list=document.getElementById('timeline-list');document.getElementById('timeline-count').textContent=results.length+' moment'+(results.length!==1?'s':'');
-if(!results.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#9826;</div><h3>pocket is empty</h3><p>collect a pip for '+eh(activeChild)+' to start.</p></div>';return}
+if(!results.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#9826;</div><h3>No moments yet</h3><p>Capture something for '+eh(activeChild)+' and it will appear here.</p></div>';return}
 const groups=groupByDate(results);let h='';for(const[label,items]of groups){h+='<div class="date-group-label">'+eh(label)+'</div>';h+=items.map(item=>{const cc=item.category||'',cl=item.category?item.category.charAt(0).toUpperCase()+item.category.slice(1):'Uncategorised',isQ=item.category==='quote',dt=isQ?'<span class="quote-mark">&ldquo;</span>'+eh(item.text)+'<span class="quote-mark">&rdquo;</span>':eh(item.text);return'<div class="item-card retrieve-item '+(item.pinned?'pinned':'')+'" data-id="'+ea(item.id)+'"><div class="item-text">'+(item.pinned?'<span class="pin-indicator">&#9873;</span> ':'')+dt+'</div><div class="item-footer"><div class="item-meta"><span class="cat-badge '+cc+'">'+cl+'</span>'+(item.tags||[]).map(t=>'<span class="item-tag">'+eh(t)+'</span>').join('')+'<span>'+formatTime(item.createdAt)+'</span></div><div class="item-actions"><button class="item-action-btn pin-type '+(item.pinned?'is-pinned':'')+'" data-action="pin" data-id="'+ea(item.id)+'">'+(item.pinned?'Unpin':'Pin')+'</button><button class="item-action-btn delete-type" data-action="delete" data-id="'+ea(item.id)+'">Delete</button></div></div></div>'}).join('')}list.innerHTML=h;
 list.querySelectorAll('.item-action-btn').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.id,a=b.dataset.action;if(a==='delete'){const rm=deleteItem(id);if(rm)pushUndo('Moment deleted',rm)}else if(a==='pin')togglePin(id);renderTimeline();updateBadge();updateStats()})})}
 
@@ -476,7 +483,7 @@ modal.cancel.addEventListener('click',modal.close);modal.confirm.addEventListene
 document.getElementById('export-btn').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='pocketpip-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url)});
 document.getElementById('import-btn').addEventListener('click',()=>document.getElementById('import-file').click());
 document.getElementById('import-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imp=JSON.parse(reader.result);if(imp.items&&Array.isArray(imp.items)){const ids=new Set(data.items.map(i=>i.id));let c=0;imp.items.forEach(i=>{if(!ids.has(i.id)){if(!Array.isArray(i.tags))i.tags=i.tag?[i.tag]:[];if(!i.category)i.category='';if(!i.createdAt)i.createdAt=new Date().toISOString();if(!i.childName)i.childName=activeChild;i.pinned=!!i.pinned;delete i.tag;data.items.push(i);c++}});if(Array.isArray(imp.children))imp.children.forEach(ch=>{if(!data.children.includes(ch))data.children.push(ch)});if(imp.tags)imp.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));saveData(data);renderChildDropdown();renderCurrentView();showFlash('Imported '+c+' moments')}else throw new Error('Invalid')}catch(err){alert('Invalid file. Expected pocketpip JSON.')}};reader.readAsText(file);e.target.value=''});
-document.getElementById('clear-btn').addEventListener('click',()=>{modal.open('Clear all data?','This permanently deletes all moments for all children.',null,()=>{data={children:['Malcolm'],tags:[],items:[]};saveData(data);activeChild='Malcolm';localStorage.setItem(ACTIVE_CHILD_KEY,activeChild);setActiveChild(activeChild);renderChildDropdown();renderCurrentView()},'Clear All',true)});
+document.getElementById('clear-btn').addEventListener('click',()=>{modal.open('Delete all data?','This permanently and irreversibly deletes every moment for all children. This cannot be undone. Type DELETE to confirm.',ct=>{const warn=document.createElement('p');warn.style.cssText='font-size:13px;color:var(--danger);font-weight:600;margin-bottom:12px';warn.textContent='This action is permanent.';ct.appendChild(warn);const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.id='confirm-delete-input';inp.placeholder='Type DELETE to confirm';inp.autocomplete='off';inp.addEventListener('input',()=>{modal.confirm.disabled=inp.value!=='DELETE';modal.confirm.style.opacity=inp.value==='DELETE'?'1':'0.4'});ct.appendChild(inp)},()=>{const v=document.getElementById('confirm-delete-input');if(!v||v.value!=='DELETE')return;data={children:['Malcolm'],tags:[],items:[]};saveData(data);activeChild='Malcolm';localStorage.setItem(ACTIVE_CHILD_KEY,activeChild);setActiveChild(activeChild);renderChildDropdown();renderCurrentView()},'Delete Everything',true);modal.confirm.disabled=true;modal.confirm.style.opacity='0.4'});
 document.getElementById('purge-btn').addEventListener('click',()=>{const n=data.items.filter(i=>i._deleted).length;modal.open('Empty trash?','Permanently remove '+n+' deleted moment'+(n!==1?'s':'')+' across all children.',null,()=>{purgeAllDeleted();renderCurrentView();showFlash('Trash emptied')},'Empty Trash',true)});
 document.getElementById('cloud-btn').addEventListener('click',()=>{modal.open('Sync Settings','Enter your Google Apps Script URL and secret key. Both parents must use the same URL and key.',ct=>{const ul=document.createElement('label');ul.style.cssText='font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px';ul.textContent='Script URL';ct.appendChild(ul);const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.id='cloud-url-input';inp.placeholder='https://script.google.com/macros/s/...';inp.value=cloudUrl;ct.appendChild(inp);const kl=document.createElement('label');kl.style.cssText='font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px';kl.textContent='Secret Key';ct.appendChild(kl);const ki=document.createElement('input');ki.type='password';ki.className='modal-input';ki.id='cloud-key-input';ki.placeholder='Enter your shared secret key';ki.value=getCloudSecret();ki.autocomplete='off';ct.appendChild(ki);if(lastSyncTime){const p=document.createElement('p');p.style.cssText='font-size:12px;color:var(--text-muted);margin-top:4px';p.textContent='Last synced: '+lastSyncTime.toLocaleString();ct.appendChild(p)}},()=>{const url=document.getElementById('cloud-url-input').value.trim();const key=document.getElementById('cloud-key-input').value.trim();if(url&&validateCloudUrl(url)){if(!key){alert('A secret key is required for sync security.');return}localStorage.setItem(CLOUD_URL_KEY,url);localStorage.setItem(CLOUD_KEY_STORAGE,key);cloudUrl=url;fetchCloudData()}else if(url){alert('Enter a valid Google Apps Script URL.')}else{localStorage.removeItem(CLOUD_URL_KEY);localStorage.removeItem(CLOUD_KEY_STORAGE);cloudUrl='';setSyncStatus('','Not connected')}},'Save')});
 
