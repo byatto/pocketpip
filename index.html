@@ -366,425 +366,1557 @@
 <input type="file" id="import-file" accept=".json" style="display:none">
 
 <script>
-const STORAGE_KEY='pocketpip_data',CLOUD_URL_KEY='pocketpip_cloud_url',CLOUD_KEY_STORAGE='pocketpip_cloud_key',THEME_KEY='pocketpip_theme',ACTIVE_CHILD_KEY='pocketpip_active_child',CATEGORIES=['quote','first','funny','neat','note'];
-function loadData(){try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){const d=JSON.parse(raw);if(!Array.isArray(d.items))d.items=[];if(!Array.isArray(d.tags))d.tags=[];if(!Array.isArray(d.children))d.children=['Malcolm'];d.items=d.items.filter(i=>i&&typeof i.id==='string'&&typeof i.text==='string');d.items.forEach(i=>{if(!Array.isArray(i.tags))i.tags=i.tag?[i.tag]:[];if(!i.category)i.category='';if(!i.createdAt)i.createdAt=new Date().toISOString();if(typeof i.pinned==='undefined')i.pinned=false;if(!i.childName)i.childName=d.children[0]||'Malcolm';delete i.tag});const P=30*24*60*60*1000;d.items=d.items.filter(i=>{if(!i._deleted)return true;if(!i._deletedAt)return false;return(Date.now()-new Date(i._deletedAt).getTime())<P});return d}}catch(e){console.error('Load error:',e)}return{children:['Malcolm'],tags:[],items:[]}}
-let _ss=false;function saveData(d){localStorage.setItem(STORAGE_KEY,JSON.stringify(d));if(!_ss)triggerCloudSync(d)}
-let data=loadData();
-let activeChild=localStorage.getItem(ACTIVE_CHILD_KEY)||data.children[0]||'Malcolm';
-if(!data.children.includes(activeChild)){activeChild=data.children[0]||'Malcolm';if(!data.children.includes(activeChild))data.children.push(activeChild)}
-function setActiveChild(name){activeChild=name;localStorage.setItem(ACTIVE_CHILD_KEY,name);document.getElementById('child-active-name').textContent=name;document.title='pocketpip \u2014 '+name;document.getElementById('capture-prompt').textContent='new pip for '+name;renderChildDropdown();renderCurrentView()}
-function addChild(name){const c=name.trim();if(!c)return false;if(data.children.some(x=>x.toLowerCase()===c.toLowerCase()))return false;data.children.push(c);data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));saveData(data);setActiveChild(c);return true}
-function removeChild(name){if(data.children.length<=1)return;data.children=data.children.filter(c=>c!==name);data.items.forEach(i=>{if(i.childName===name&&!i._deleted){i._deleted=true;i._deletedAt=new Date().toISOString()}});saveData(data);if(activeChild===name)setActiveChild(data.children[0]);else renderChildDropdown()}
-function renderChildDropdown(){const dd=document.getElementById('child-dropdown');let h='';data.children.forEach(name=>{const act=name===activeChild;h+='<div class="child-option '+(act?'active':'')+'" data-name="'+ea(name)+'">'+eh(name)+(data.children.length>1?'<span class="child-remove" data-name="'+ea(name)+'" title="Remove">&times;</span>':'')+'</div>'});h+='<div class="child-add-option" id="child-add-option">+ Add child</div>';dd.innerHTML=h;dd.querySelectorAll('.child-option').forEach(o=>{o.addEventListener('click',e=>{if(e.target.classList.contains('child-remove'))return;setActiveChild(o.dataset.name);dd.classList.remove('open')})});dd.querySelectorAll('.child-remove').forEach(b=>{b.addEventListener('click',e=>{e.stopPropagation();const n=b.dataset.name;modal.open('Remove '+n+'?','This will remove '+n+' and soft-delete all their moments.',null,()=>removeChild(n),'Remove',true)})});document.getElementById('child-add-option').addEventListener('click',()=>{dd.classList.remove('open');modal.open('Add a child','Enter their name.',ct=>{const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.id='new-child-input';inp.placeholder='Name';inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();modal.confirm.click()}});ct.appendChild(inp)},()=>{const n=document.getElementById('new-child-input').value.trim();if(n){if(!addChild(n))showFlash('Name exists');else showFlash(n+' added')}},'Add')})}
-document.getElementById('child-active-btn').addEventListener('click',e=>{e.stopPropagation();document.getElementById('child-dropdown').classList.toggle('open')});document.addEventListener('click',e=>{if(!e.target.closest('.child-selector'))document.getElementById('child-dropdown').classList.remove('open')});
 
-// SYNC
-const SYNC_LOG_KEY='pocketpip_sync_log';
-let cloudUrl=localStorage.getItem(CLOUD_URL_KEY)||'';
-const syncBtn=document.getElementById('manual-sync-btn'),syncLabel=document.getElementById('sync-label');
-let syncTimeout=null,lastSyncTime=null;
+// =============================================================================
+// CONSTANTS & STORAGE KEYS
+// =============================================================================
 
-// Sync log: stores last 20 sync events with timestamps and outcomes
-function getSyncLog(){try{return JSON.parse(localStorage.getItem(SYNC_LOG_KEY)||'[]')}catch{return[]}}
-function addSyncLog(direction,status,detail){
-  const log=getSyncLog();
-  log.unshift({ts:new Date().toISOString(),direction,status,detail:detail||''});
-  if(log.length>20)log.pop();
-  localStorage.setItem(SYNC_LOG_KEY,JSON.stringify(log));
+const STORAGE_KEY      = 'pocketpip_data';
+const CLOUD_URL_KEY    = 'pocketpip_cloud_url';
+const CLOUD_KEY_STORAGE = 'pocketpip_cloud_key';
+const SYNC_LOG_KEY     = 'pocketpip_sync_log';
+const THEME_KEY        = 'pocketpip_theme';
+const ACTIVE_CHILD_KEY = 'pocketpip_active_child';
+const CATEGORIES       = ['quote', 'first', 'funny', 'neat', 'note'];
+
+
+// =============================================================================
+// DATA — load, save, migrate
+// =============================================================================
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultData();
+
+    const d = JSON.parse(raw);
+
+    // Ensure required arrays exist
+    if (!Array.isArray(d.items))    d.items    = [];
+    if (!Array.isArray(d.tags))     d.tags     = [];
+    if (!Array.isArray(d.children)) d.children = ['Malcolm'];
+
+    // Strip any completely broken items (must have id and text strings)
+    d.items = d.items.filter(i => i && typeof i.id === 'string' && typeof i.text === 'string');
+
+    // Migrate old item shapes — fill in missing fields
+    d.items.forEach(i => {
+      if (!Array.isArray(i.tags))        i.tags     = i.tag ? [i.tag] : [];
+      if (!i.category)                   i.category  = '';
+      if (!i.createdAt)                  i.createdAt = new Date().toISOString();
+      if (typeof i.pinned === 'undefined') i.pinned  = false;
+      if (!i.childName)                  i.childName = d.children[0] || 'Malcolm';
+      delete i.tag; // remove old single-tag field
+    });
+
+    // Prune soft-deleted items older than 30 days
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    d.items = d.items.filter(i => {
+      if (!i._deleted) return true;
+      if (!i._deletedAt) return false;
+      return (Date.now() - new Date(i._deletedAt).getTime()) < THIRTY_DAYS;
+    });
+
+    return d;
+  } catch (e) {
+    console.error('Load error:', e);
+    return defaultData();
+  }
 }
-function clearSyncLog(){localStorage.removeItem(SYNC_LOG_KEY)}
 
-function setSyncStatus(s,t){
-  syncBtn.className='subtle-btn';
-  if(s==='loading'){syncLabel.textContent='Syncing…'}
-  else if(s==='ok'){syncLabel.textContent=t||'Synced'}
-  else if(s==='error'){syncBtn.classList.add('danger');syncLabel.textContent=t||'Sync error'}
-  else{syncLabel.textContent=cloudUrl?'Sync':'No cloud'}
+function defaultData() {
+  return { children: ['Malcolm'], tags: [], items: [] };
 }
 
-syncBtn.addEventListener('click',()=>{
-  if(cloudUrl&&validateCloudUrl(cloudUrl))fetchCloudData();
+// _ss (skip sync) flag: set true during cloud merge to prevent re-triggering sync
+let _ss = false;
+
+function saveData(d) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  if (!_ss) triggerCloudSync(d);
+}
+
+let data = loadData();
+
+
+// =============================================================================
+// CHILDREN — multi-child support
+// =============================================================================
+
+let activeChild = localStorage.getItem(ACTIVE_CHILD_KEY) || data.children[0] || 'Malcolm';
+
+// If stored active child no longer exists in data, fall back to first
+if (!data.children.includes(activeChild)) {
+  activeChild = data.children[0] || 'Malcolm';
+  if (!data.children.includes(activeChild)) data.children.push(activeChild);
+}
+
+function setActiveChild(name) {
+  activeChild = name;
+  localStorage.setItem(ACTIVE_CHILD_KEY, name);
+  document.getElementById('child-active-name').textContent = name;
+  document.title = 'pocketpip \u2014 ' + name;
+  document.getElementById('capture-prompt').textContent = 'new pip for ' + name;
+  renderChildDropdown();
+  renderCurrentView();
+}
+
+function addChild(name) {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  if (data.children.some(x => x.toLowerCase() === trimmed.toLowerCase())) return false;
+  data.children.push(trimmed);
+  data.children.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  saveData(data);
+  setActiveChild(trimmed);
+  return true;
+}
+
+function removeChild(name) {
+  if (data.children.length <= 1) return;
+  data.children = data.children.filter(c => c !== name);
+  // Soft-delete all items belonging to the removed child
+  data.items.forEach(i => {
+    if (i.childName === name && !i._deleted) {
+      i._deleted = true;
+      i._deletedAt = new Date().toISOString();
+    }
+  });
+  saveData(data);
+  if (activeChild === name) setActiveChild(data.children[0]);
+  else renderChildDropdown();
+}
+
+function renderChildDropdown() {
+  const dd = document.getElementById('child-dropdown');
+  let html = '';
+
+  data.children.forEach(name => {
+    const isActive = name === activeChild;
+    const removeBtn = data.children.length > 1
+      ? `<span class="child-remove" data-name="${ea(name)}" title="Remove">&times;</span>`
+      : '';
+    html += `<div class="child-option ${isActive ? 'active' : ''}" data-name="${ea(name)}">${eh(name)}${removeBtn}</div>`;
+  });
+
+  html += '<div class="child-add-option" id="child-add-option">+ Add child</div>';
+  dd.innerHTML = html;
+
+  // Switch child on click
+  dd.querySelectorAll('.child-option').forEach(opt => {
+    opt.addEventListener('click', e => {
+      if (e.target.classList.contains('child-remove')) return;
+      setActiveChild(opt.dataset.name);
+      dd.classList.remove('open');
+    });
+  });
+
+  // Remove child on × click
+  dd.querySelectorAll('.child-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const name = btn.dataset.name;
+      modal.open(
+        'Remove ' + name + '?',
+        'This will remove ' + name + ' and soft-delete all their moments.',
+        null,
+        () => removeChild(name),
+        'Remove',
+        true
+      );
+    });
+  });
+
+  // Add child
+  document.getElementById('child-add-option').addEventListener('click', () => {
+    dd.classList.remove('open');
+    modal.open(
+      'Add a child',
+      'Enter their name.',
+      ct => {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'modal-input';
+        inp.id = 'new-child-input';
+        inp.placeholder = 'Name';
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { e.preventDefault(); modal.confirm.click(); }
+        });
+        ct.appendChild(inp);
+      },
+      () => {
+        const name = document.getElementById('new-child-input').value.trim();
+        if (name) {
+          if (!addChild(name)) showFlash('Name exists');
+          else showFlash(name + ' added');
+        }
+      },
+      'Add'
+    );
+  });
+}
+
+// Toggle child dropdown open/close
+document.getElementById('child-active-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('child-dropdown').classList.toggle('open');
+});
+
+// Close child dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.child-selector')) {
+    document.getElementById('child-dropdown').classList.remove('open');
+  }
+});
+
+
+// =============================================================================
+// SYNC — cloud read/write via Google Apps Script
+// =============================================================================
+
+let cloudUrl     = localStorage.getItem(CLOUD_URL_KEY) || '';
+let syncTimeout  = null;
+let lastSyncTime = null;
+
+const syncBtn   = document.getElementById('manual-sync-btn');
+const syncLabel = document.getElementById('sync-label');
+
+// --- Sync log (persisted, last 20 events) ---
+
+function getSyncLog() {
+  try { return JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function addSyncLog(direction, status, detail) {
+  const log = getSyncLog();
+  log.unshift({ ts: new Date().toISOString(), direction, status, detail: detail || '' });
+  if (log.length > 20) log.pop();
+  localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(log));
+}
+
+function clearSyncLog() {
+  localStorage.removeItem(SYNC_LOG_KEY);
+}
+
+// --- Status display ---
+
+function setSyncStatus(state, text) {
+  syncBtn.className = 'subtle-btn';
+  if (state === 'loading') {
+    syncLabel.textContent = 'Syncing…';
+  } else if (state === 'ok') {
+    syncLabel.textContent = text || 'Synced';
+  } else if (state === 'error') {
+    syncBtn.classList.add('danger');
+    syncLabel.textContent = text || 'Sync error';
+  } else {
+    syncLabel.textContent = cloudUrl ? 'Sync' : 'No cloud';
+  }
+}
+
+syncBtn.addEventListener('click', () => {
+  if (cloudUrl && validateCloudUrl(cloudUrl)) fetchCloudData();
   else document.getElementById('cloud-btn').click();
 });
 
-function validateCloudUrl(u){
-  if(!u)return false;
-  try{const x=new URL(u);return x.hostname==='script.google.com'&&x.pathname.startsWith('/macros/s/')}
-  catch{return false}
-}
-function validateCloudData(d){
-  // Only reject if the shape is completely wrong — individual bad items are filtered below
-  if(!d||typeof d!=='object')return{ok:false,reason:'Response is not an object'};
-  if(!Array.isArray(d.items))return{ok:false,reason:'Response has no items array'};
-  return{ok:true};
-}
-function sanitizeCloudItem(item,ch){
-  // Guard: skip items that are fundamentally broken (no id or text)
-  if(!item||typeof item.id==='undefined'||typeof item.text==='undefined')return null;
-  return{
-    id:String(item.id).slice(0,50),
-    text:String(item.text).slice(0,10000),
-    tags:Array.isArray(item.tags)?item.tags.map(t=>String(t).slice(0,100)).slice(0,20):[],
-    category:CATEGORIES.includes(item.category)?item.category:'',
-    childName:typeof item.childName==='string'?item.childName.slice(0,100):(ch[0]||'Unknown'),
-    createdAt:item.createdAt||new Date().toISOString(),
-    updatedAt:item.updatedAt||null,
-    pinned:!!item.pinned,
-    _deleted:!!item._deleted,
-    _deletedAt:item._deletedAt||null
+// --- Validation ---
+
+function validateCloudUrl(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.hostname === 'script.google.com' && u.pathname.startsWith('/macros/s/');
+  } catch {
+    return false;
   }
 }
-function getCloudSecret(){return localStorage.getItem(CLOUD_KEY_STORAGE)||''}
 
-function fetchCloudData(){
-  if(!cloudUrl||!validateCloudUrl(cloudUrl))return;
-  setSyncStatus('loading','Pulling…');
-  const secret=getCloudSecret();
-  const urlWithKey=cloudUrl+(cloudUrl.includes('?')?'&':'?')+'key='+encodeURIComponent(secret);
-  fetch(urlWithKey,{method:'GET',redirect:'follow'})
-    .then(r=>{
-      if(!r.ok)throw new Error('HTTP '+r.status+' — server rejected request');
+function validateCloudData(d) {
+  // Only reject if the shape is fundamentally wrong.
+  // Individual bad items are filtered in sanitizeCloudItem rather than failing the whole pull.
+  if (!d || typeof d !== 'object') return { ok: false, reason: 'Response is not an object' };
+  if (!Array.isArray(d.items))     return { ok: false, reason: 'Response has no items array' };
+  return { ok: true };
+}
+
+function sanitizeCloudItem(item, children) {
+  // Return null for items that are too broken to use — caller should filter these out
+  if (!item || typeof item.id === 'undefined' || typeof item.text === 'undefined') return null;
+  return {
+    id:        String(item.id).slice(0, 50),
+    text:      String(item.text).slice(0, 10000),
+    tags:      Array.isArray(item.tags) ? item.tags.map(t => String(t).slice(0, 100)).slice(0, 20) : [],
+    category:  CATEGORIES.includes(item.category) ? item.category : '',
+    childName: typeof item.childName === 'string' ? item.childName.slice(0, 100) : (children[0] || 'Unknown'),
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || null,
+    pinned:    !!item.pinned,
+    _deleted:  !!item._deleted,
+    _deletedAt: item._deletedAt || null,
+  };
+}
+
+function getCloudSecret() {
+  return localStorage.getItem(CLOUD_KEY_STORAGE) || '';
+}
+
+function buildUrlWithKey(url) {
+  const sep = url.includes('?') ? '&' : '?';
+  return url + sep + 'key=' + encodeURIComponent(getCloudSecret());
+}
+
+// --- Pull from cloud ---
+
+function fetchCloudData() {
+  if (!cloudUrl || !validateCloudUrl(cloudUrl)) return;
+
+  setSyncStatus('loading', 'Pulling…');
+
+  fetch(buildUrlWithKey(cloudUrl), { method: 'GET', redirect: 'follow' })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — server rejected request');
       return r.json();
     })
-    .then(cd=>{
-      if(cd.error){
-        addSyncLog('pull','error','Script error: '+cd.error);
-        setSyncStatus('error','Cloud: '+cd.error.slice(0,30));
+    .then(cloudData => {
+      // Script-level error
+      if (cloudData.error) {
+        addSyncLog('pull', 'error', 'Script error: ' + cloudData.error);
+        setSyncStatus('error', 'Cloud: ' + cloudData.error.slice(0, 30));
         return;
       }
-      const valid=validateCloudData(cd);
-      if(!valid.ok){
-        addSyncLog('pull','error','Bad response: '+valid.reason);
-        setSyncStatus('error','Bad cloud data: '+valid.reason.slice(0,25));
+
+      // Shape check
+      const valid = validateCloudData(cloudData);
+      if (!valid.ok) {
+        addSyncLog('pull', 'error', 'Bad response: ' + valid.reason);
+        setSyncStatus('error', 'Bad cloud data: ' + valid.reason.slice(0, 25));
         return;
       }
-      const cc=Array.isArray(cd.children)?cd.children:['Malcolm'];
-      // Filter out any null/broken items rather than rejecting the whole pull
-      const si=cd.items.map(i=>sanitizeCloudItem(i,cc)).filter(Boolean);
-      const skipped=cd.items.length-si.length;
-      if(skipped>0)addSyncLog('pull','warn',skipped+' malformed item(s) skipped from cloud');
-      const cm=new Map(si.map(i=>[i.id,i])),lm=new Map(data.items.map(i=>[i.id,i])),mm=new Map();
-      let newFromCloud=0,conflicts=0;
-      for(const[id,item]of cm){
-        const l=lm.get(id);
-        if(!l){mm.set(id,item);newFromCloud++;continue}
-        if(item._deleted||l._deleted){
-          const w=item._deleted?item:l;
-          mm.set(id,{...w,_deleted:true,_deletedAt:w._deletedAt||new Date().toISOString()});
+
+      const cloudChildren = Array.isArray(cloudData.children) ? cloudData.children : ['Malcolm'];
+
+      // Sanitize — filter out null (broken) items rather than aborting the whole pull
+      const cloudItems = cloudData.items.map(i => sanitizeCloudItem(i, cloudChildren)).filter(Boolean);
+      const skipped = cloudData.items.length - cloudItems.length;
+      if (skipped > 0) addSyncLog('pull', 'warn', skipped + ' malformed item(s) skipped from cloud');
+
+      // Merge: cloud map + local map → merged map
+      const cloudMap = new Map(cloudItems.map(i => [i.id, i]));
+      const localMap = new Map(data.items.map(i => [i.id, i]));
+      const merged   = new Map();
+      let newFromCloud = 0, conflicts = 0;
+
+      for (const [id, cloudItem] of cloudMap) {
+        const localItem = localMap.get(id);
+
+        if (!localItem) {
+          // Item only exists on cloud — take it
+          merged.set(id, cloudItem);
+          newFromCloud++;
           continue;
         }
-        const ct=new Date(item.updatedAt||item.createdAt),lt=new Date(l.updatedAt||l.createdAt);
-        if(ct!==lt)conflicts++;
-        mm.set(id,lt>ct?l:item);
+
+        // If either copy is deleted, mark as deleted (deletion wins)
+        if (cloudItem._deleted || localItem._deleted) {
+          const winner = cloudItem._deleted ? cloudItem : localItem;
+          merged.set(id, { ...winner, _deleted: true, _deletedAt: winner._deletedAt || new Date().toISOString() });
+          continue;
+        }
+
+        // Both exist — most recently updated wins
+        const cloudTime = new Date(cloudItem.updatedAt || cloudItem.createdAt);
+        const localTime = new Date(localItem.updatedAt || localItem.createdAt);
+        if (cloudTime.getTime() !== localTime.getTime()) conflicts++;
+        merged.set(id, localTime > cloudTime ? localItem : cloudItem);
       }
-      for(const[id,item]of lm){if(!mm.has(id))mm.set(id,item)}
-      _ss=true;
-      data.items=Array.from(mm.values());
-      data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-      cc.forEach(c=>{if(!data.children.includes(c))data.children.push(c)});
-      data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
-      if(Array.isArray(cd.tags)){cd.tags.forEach(t=>{const cl=String(t).slice(0,100);if(cl&&!data.tags.includes(cl))data.tags.push(cl)})}
+
+      // Items only on local — keep them
+      for (const [id, localItem] of localMap) {
+        if (!merged.has(id)) merged.set(id, localItem);
+      }
+
+      // Commit merge to local state
+      _ss = true;
+      data.items = Array.from(merged.values());
+      data.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      // Merge children lists
+      cloudChildren.forEach(c => { if (!data.children.includes(c)) data.children.push(c); });
+      data.children.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+      // Merge tags
+      if (Array.isArray(cloudData.tags)) {
+        cloudData.tags.forEach(t => {
+          const clean = String(t).slice(0, 100);
+          if (clean && !data.tags.includes(clean)) data.tags.push(clean);
+        });
+      }
+
       saveData(data);
-      _ss=false;
-      const detail='Pull OK · '+si.length+' cloud items · '+newFromCloud+' new · '+conflicts+' conflicts';
-      addSyncLog('pull','ok',detail);
+      _ss = false;
+
+      addSyncLog('pull', 'ok',
+        'Pull OK · ' + cloudItems.length + ' cloud items · ' + newFromCloud + ' new · ' + conflicts + ' conflicts'
+      );
+
+      // Push merged result back so cloud stays in sync
       pushToCloud(data);
       renderChildDropdown();
       renderCurrentView();
-      lastSyncTime=new Date();
-      setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()));
+      lastSyncTime = new Date();
+      setSyncStatus('ok', 'Synced ' + formatTime(lastSyncTime.toISOString()));
     })
-    .catch(e=>{
-      console.error('Sync pull error:',e);
-      _ss=false;
-      // Try to get a real error message — e may be a SyntaxError (bad JSON), TypeError, etc.
-      const msg=e.message||String(e)||'Unknown error';
-      const logMsg='catch: '+msg;
-      addSyncLog('pull','error',logMsg);
+    .catch(e => {
+      console.error('Sync pull error:', e);
+      _ss = false;
+
+      const msg = e.message || String(e) || 'Unknown error';
+      addSyncLog('pull', 'error', 'catch: ' + msg);
+
+      // Translate technical errors into plain English for the status bar
       let friendly;
-      if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('network'))
-        friendly='No internet connection';
-      else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))
-        friendly='Access denied — check key';
-      else if(msg.includes('HTTP 404'))
-        friendly='Script not found — check URL';
-      else if(msg.includes('HTTP 5'))
-        friendly='Google server error — try again';
-      else if(msg.toLowerCase().includes('json')||msg.includes('SyntaxError'))
-        friendly='Bad response — script returned non-JSON (check Diagnose log)';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network'))
+        friendly = 'No internet connection';
+      else if (msg.includes('HTTP 401') || msg.includes('HTTP 403'))
+        friendly = 'Access denied — check key';
+      else if (msg.includes('HTTP 404'))
+        friendly = 'Script not found — check URL';
+      else if (msg.includes('HTTP 5'))
+        friendly = 'Google server error — try again';
+      else if (msg.toLowerCase().includes('json') || msg.includes('SyntaxError'))
+        friendly = 'Bad response — script returned non-JSON';
       else
-        friendly='Pull failed: '+msg.slice(0,30);
-      setSyncStatus('error',friendly);
+        friendly = 'Pull failed: ' + msg.slice(0, 30);
+
+      setSyncStatus('error', friendly);
     });
 }
 
-function pushToCloud(d){
-  if(!cloudUrl||!validateCloudUrl(cloudUrl))return Promise.resolve();
-  const secret=getCloudSecret();
-  const payload={...d,key:secret,_pushedAt:new Date().toISOString()};
-  return fetch(cloudUrl,{method:'POST',redirect:'follow',body:JSON.stringify(payload)})
-    .then(r=>{
-      if(!r.ok)throw new Error('HTTP '+r.status);
+// --- Push to cloud ---
+
+function pushToCloud(d) {
+  if (!cloudUrl || !validateCloudUrl(cloudUrl)) return Promise.resolve();
+
+  const payload = { ...d, key: getCloudSecret(), _pushedAt: new Date().toISOString() };
+
+  return fetch(cloudUrl, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     })
-    .then(rd=>{
-      if(rd.error){
-        addSyncLog('push','error',rd.error);
-        setSyncStatus('error','Push: '+rd.error.slice(0,30));
+    .then(response => {
+      if (response.error) {
+        addSyncLog('push', 'error', response.error);
+        setSyncStatus('error', 'Push: ' + response.error.slice(0, 30));
         return;
       }
-      lastSyncTime=new Date();
-      addSyncLog('push','ok',d.items.filter(i=>!i._deleted).length+' items pushed');
-      setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()));
+      lastSyncTime = new Date();
+      addSyncLog('push', 'ok', d.items.filter(i => !i._deleted).length + ' items pushed');
+      setSyncStatus('ok', 'Synced ' + formatTime(lastSyncTime.toISOString()));
     })
-    .catch(e=>{
-      console.error('Push error:',e);
-      const msg=e.message||'Unknown error';
-      addSyncLog('push','error',msg);
-      let friendly='Push failed';
-      if(msg.includes('Failed to fetch')||msg.includes('NetworkError'))friendly='No internet';
-      else if(msg.includes('HTTP 4'))friendly='Push rejected — check URL/key';
-      setSyncStatus('error',friendly);
+    .catch(e => {
+      console.error('Push error:', e);
+      const msg = e.message || 'Unknown error';
+      addSyncLog('push', 'error', msg);
+      let friendly = 'Push failed';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) friendly = 'No internet';
+      else if (msg.includes('HTTP 4')) friendly = 'Push rejected — check URL/key';
+      setSyncStatus('error', friendly);
     });
 }
 
-function triggerCloudSync(d){
-  if(!cloudUrl||!validateCloudUrl(cloudUrl))return;
-  setSyncStatus('loading','Saving…');
+// --- Debounced sync trigger (fires after user stops making changes) ---
+
+function triggerCloudSync(d) {
+  if (!cloudUrl || !validateCloudUrl(cloudUrl)) return;
+  setSyncStatus('loading', 'Saving…');
   clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(()=>pushToCloud(d),1500);
+  syncTimeout = setTimeout(() => pushToCloud(d), 1500);
 }
 
-// Test connection without saving — used in diagnostics
-function testCloudConnection(url,key){
-  return new Promise((resolve)=>{
-    if(!validateCloudUrl(url)){resolve({ok:false,msg:'Invalid URL format — must be a script.google.com URL'});return}
-    const testUrl=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key||'');
-    const t=setTimeout(()=>resolve({ok:false,msg:'Timed out after 10s — script may be sleeping or URL wrong'}),10000);
-    fetch(testUrl,{method:'GET',redirect:'follow'})
-      .then(r=>{
-        clearTimeout(t);
-        if(!r.ok)throw new Error('HTTP '+r.status);
+// --- Test connection (used by Cloud modal and Diagnose panel) ---
+
+function testCloudConnection(url, key) {
+  return new Promise(resolve => {
+    if (!validateCloudUrl(url)) {
+      resolve({ ok: false, msg: 'Invalid URL format — must be a script.google.com URL' });
+      return;
+    }
+
+    const testUrl = url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key || '');
+    const timeout = setTimeout(
+      () => resolve({ ok: false, msg: 'Timed out after 10s — script may be sleeping or URL wrong' }),
+      10000
+    );
+
+    fetch(testUrl, { method: 'GET', redirect: 'follow' })
+      .then(r => {
+        clearTimeout(timeout);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       })
-      .then(cd=>{
-        if(cd.error){resolve({ok:false,msg:'Script returned error: '+cd.error});return}
-        if(!Array.isArray(cd.items)){resolve({ok:false,msg:'Unexpected response shape — is this the right script?'});return}
-        resolve({ok:true,msg:'Connected! Found '+cd.items.length+' item(s) on cloud.'});
+      .then(cd => {
+        if (cd.error) {
+          resolve({ ok: false, msg: 'Script returned error: ' + cd.error });
+          return;
+        }
+        if (!Array.isArray(cd.items)) {
+          resolve({ ok: false, msg: 'Unexpected response — is this the right script?' });
+          return;
+        }
+        resolve({ ok: true, msg: 'Connected! Found ' + cd.items.length + ' item(s) on cloud.' });
       })
-      .catch(e=>{
-        clearTimeout(t);
-        let msg=e.message||'Network error';
-        if(msg.includes('Failed to fetch'))msg='Could not reach Google — check your internet connection';
-        else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))msg='Access denied — wrong key, or script not set to "Anyone can access"';
-        else if(msg.includes('HTTP 404'))msg='Script not found — URL may be wrong or script was deleted';
-        resolve({ok:false,msg});
+      .catch(e => {
+        clearTimeout(timeout);
+        let msg = e.message || 'Network error';
+        if (msg.includes('Failed to fetch'))
+          msg = 'Could not reach Google — check your internet connection';
+        else if (msg.includes('HTTP 401') || msg.includes('HTTP 403'))
+          msg = 'Access denied — wrong key, or script not set to "Anyone can access"';
+        else if (msg.includes('HTTP 404'))
+          msg = 'Script not found — URL may be wrong or script was deleted';
+        resolve({ ok: false, msg });
       });
   });
 }
 
-function showSyncDiagnostics(){
-  const log=getSyncLog();
-  const hasCloud=!!(cloudUrl&&validateCloudUrl(cloudUrl));
+// --- Sync diagnostics panel ---
+
+function showSyncDiagnostics() {
+  const log      = getSyncLog();
+  const hasCloud = !!(cloudUrl && validateCloudUrl(cloudUrl));
+
   modal.open(
     'Sync Diagnostics',
-    hasCloud?'Cloud is configured. Recent sync history below.':'No cloud URL configured. Set one via the Cloud button.',
-    ct=>{
+    hasCloud
+      ? 'Cloud is configured. Recent sync history below.'
+      : 'No cloud URL configured. Set one via the Cloud button.',
+    ct => {
       // Status summary
-      const summary=document.createElement('div');
-      summary.style.cssText='font-size:13px;margin-bottom:12px;padding:10px;background:var(--bg-hover);border-radius:8px;line-height:1.7';
-      summary.innerHTML=
-        '<b>URL:</b> '+(hasCloud?'✓ Configured':'✗ Not set')+'<br>'+
-        '<b>Key:</b> '+(getCloudSecret()?'✓ Set':'✗ Not set')+'<br>'+
-        '<b>Last sync:</b> '+(lastSyncTime?formatTime(lastSyncTime.toISOString()):'Never this session')+'<br>'+
-        '<b>Local items:</b> '+data.items.filter(i=>!i._deleted).length;
+      const summary = document.createElement('div');
+      summary.style.cssText = 'font-size:13px;margin-bottom:12px;padding:10px;background:var(--bg-hover);border-radius:8px;line-height:1.7';
+      summary.innerHTML =
+        '<b>URL:</b> '   + (hasCloud          ? '✓ Configured'                  : '✗ Not set') + '<br>' +
+        '<b>Key:</b> '   + (getCloudSecret()  ? '✓ Set'                         : '✗ Not set') + '<br>' +
+        '<b>Last sync:</b> ' + (lastSyncTime  ? formatTime(lastSyncTime.toISOString()) : 'Never this session') + '<br>' +
+        '<b>Local items:</b> ' + data.items.filter(i => !i._deleted).length;
       ct.appendChild(summary);
 
-      // Test connection button
-      if(hasCloud){
-        const testBtn=document.createElement('button');
-        testBtn.className='subtle-btn';
-        testBtn.style.cssText='width:100%;margin-bottom:12px;font-size:13px';
-        testBtn.textContent='▶ Test Connection Now';
-        testBtn.addEventListener('click',async()=>{
-          testBtn.textContent='Testing…';
-          testBtn.disabled=true;
-          const result=await testCloudConnection(cloudUrl,getCloudSecret());
-          testBtn.textContent=result.ok?'✓ '+result.msg:'✗ '+result.msg;
-          testBtn.style.color=result.ok?'var(--cat-first)':'var(--danger)';
-          testBtn.disabled=false;
+      // Live test button
+      if (hasCloud) {
+        const testBtn = document.createElement('button');
+        testBtn.className = 'subtle-btn';
+        testBtn.style.cssText = 'width:100%;margin-bottom:12px;font-size:13px';
+        testBtn.textContent = '▶ Test Connection Now';
+        testBtn.addEventListener('click', async () => {
+          testBtn.textContent = 'Testing…';
+          testBtn.disabled = true;
+          const result = await testCloudConnection(cloudUrl, getCloudSecret());
+          testBtn.textContent = (result.ok ? '✓ ' : '✗ ') + result.msg;
+          testBtn.style.color = result.ok ? 'var(--cat-first)' : 'var(--danger)';
+          testBtn.disabled = false;
         });
         ct.appendChild(testBtn);
       }
 
       // Sync log
-      const logTitle=document.createElement('div');
-      logTitle.style.cssText='font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:6px';
-      logTitle.textContent='Recent Sync Events';
+      const logTitle = document.createElement('div');
+      logTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:6px';
+      logTitle.textContent = 'Recent Sync Events';
       ct.appendChild(logTitle);
 
-      const logWrap=document.createElement('div');
-      logWrap.style.cssText='max-height:200px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--bg-hover);border-radius:8px;padding:10px';
-      if(!log.length){
-        logWrap.textContent='No sync events recorded yet.';
-        logWrap.style.color='var(--text-muted)';
+      const logWrap = document.createElement('div');
+      logWrap.style.cssText = 'max-height:200px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--bg-hover);border-radius:8px;padding:10px';
+
+      if (!log.length) {
+        logWrap.textContent = 'No sync events recorded yet.';
+        logWrap.style.color = 'var(--text-muted)';
       } else {
-        logWrap.innerHTML=log.map(e=>{
-          const t=new Date(e.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-          const d=new Date(e.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-          const icon=e.status==='ok'?'✓':e.status==='warn'?'⚠':'✗';
-          const col=e.status==='ok'?'var(--cat-first)':e.status==='warn'?'var(--cat-funny)':'var(--danger)';
-          return'<div style="border-bottom:1px solid var(--border-subtle);padding:3px 0"><span style="color:'+col+'">'+icon+'</span> <span style="color:var(--text-muted)">'+d+' '+t+'</span> <b>'+e.direction+'</b> '+eh(e.detail)+'</div>';
+        logWrap.innerHTML = log.map(entry => {
+          const time  = new Date(entry.ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const date  = new Date(entry.ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          const icon  = entry.status === 'ok' ? '✓' : entry.status === 'warn' ? '⚠' : '✗';
+          const color = entry.status === 'ok' ? 'var(--cat-first)' : entry.status === 'warn' ? 'var(--cat-funny)' : 'var(--danger)';
+          return `<div style="border-bottom:1px solid var(--border-subtle);padding:3px 0">` +
+                 `<span style="color:${color}">${icon}</span> ` +
+                 `<span style="color:var(--text-muted)">${date} ${time}</span> ` +
+                 `<b>${entry.direction}</b> ${eh(entry.detail)}</div>`;
         }).join('');
       }
       ct.appendChild(logWrap);
 
-      // Clear log button
-      if(log.length){
-        const clearBtn=document.createElement('button');
-        clearBtn.className='subtle-btn';
-        clearBtn.style.cssText='margin-top:10px;font-size:12px';
-        clearBtn.textContent='Clear Log';
-        clearBtn.addEventListener('click',()=>{clearSyncLog();modal.close();showSyncDiagnostics()});
+      // Clear log
+      if (log.length) {
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'subtle-btn';
+        clearBtn.style.cssText = 'margin-top:10px;font-size:12px';
+        clearBtn.textContent = 'Clear Log';
+        clearBtn.addEventListener('click', () => { clearSyncLog(); modal.close(); showSyncDiagnostics(); });
         ct.appendChild(clearBtn);
       }
 
-      // Common fixes section
-      const fixTitle=document.createElement('div');
-      fixTitle.style.cssText='font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:12px 0 6px';
-      fixTitle.textContent='Common Fixes';
+      // Common fixes reference
+      const fixTitle = document.createElement('div');
+      fixTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:12px 0 6px';
+      fixTitle.textContent = 'Common Fixes';
       ct.appendChild(fixTitle);
-      const fixes=document.createElement('div');
-      fixes.style.cssText='font-size:12px;color:var(--text-secondary);line-height:1.8';
-      fixes.innerHTML=
-        '• "No internet" → Check wifi/data, try again<br>'+
-        '• "Access denied" → Re-deploy script as <i>Anyone</i><br>'+
-        '• "Script not found" → Redeploy & copy new URL<br>'+
-        '• "Bad cloud data" → Script may need updating<br>'+
-        '• Other device not seeing data → They need to tap Sync<br>'+
+
+      const fixes = document.createElement('div');
+      fixes.style.cssText = 'font-size:12px;color:var(--text-secondary);line-height:1.8';
+      fixes.innerHTML =
+        '• "No internet" → Check wifi/data, try again<br>' +
+        '• "Access denied" → Re-deploy script as <i>Anyone</i><br>' +
+        '• "Script not found" → Redeploy &amp; copy new URL<br>' +
+        '• "Bad cloud data" → Script may need updating<br>' +
+        '• Other device not seeing data → They need to tap Sync<br>' +
         '• Still stuck → Use Backup/Restore to transfer manually';
       ct.appendChild(fixes);
     },
-    null,'Close',false
+    null, 'Close', false
   );
-  // Hide confirm, only show close as cancel
+
+  // Diagnostics is read-only — hide Confirm, relabel Cancel as Close
   document.getElementById('modal-confirm').classList.add('hidden');
-  document.getElementById('modal-cancel').textContent='Close';
+  document.getElementById('modal-cancel').textContent = 'Close';
 }
 
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUrl)fetchCloudData()});
-if(cloudUrl&&validateCloudUrl(cloudUrl)){setSyncStatus('loading','Connecting…');setTimeout(fetchCloudData,500)}
+// Auto-sync when tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && cloudUrl) fetchCloudData();
+});
 
-// CORE LOGIC
-function addItem(text,category,tags,dateOverride){const item={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text:text.trim(),category:category||'',tags:(tags||[]).map(t=>t.trim()).filter(Boolean),childName:activeChild,createdAt:dateOverride||new Date().toISOString(),updatedAt:new Date().toISOString(),pinned:false};data.items.unshift(item);data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));item.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});data.tags.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));saveData(data);return item}
-function updateItem(id,u){const item=data.items.find(i=>i.id===id);if(!item)return;Object.assign(item,u,{updatedAt:new Date().toISOString()});if(u.tags)u.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});saveData(data)}
-function togglePin(id){const i=data.items.find(x=>x.id===id);if(i){i.pinned=!i.pinned;saveData(data)}}
-function deleteItem(id){const i=data.items.find(x=>x.id===id);if(!i)return null;i._deleted=true;i._deletedAt=new Date().toISOString();saveData(data);return{...i,_deleted:false,_deletedAt:null}}
-function restoreItem(item){if(!item)return;const ex=data.items.find(i=>i.id===item.id);if(ex){ex._deleted=false;ex._deletedAt=null}else{item._deleted=false;item._deletedAt=null;data.items.push(item)}data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));saveData(data)}
-function purgeAllDeleted(){data.items=data.items.filter(i=>!i._deleted);saveData(data)}
-function getChildItems(){return data.items.filter(i=>i.childName===activeChild&&!i._deleted)}
-function getUncategorised(){return data.items.filter(i=>i.childName===activeChild&&!i.category&&!i._deleted)}
-function getActiveItems(){return data.items.filter(i=>!i._deleted)}
-function searchItems(query,tag,cat,sort){let r=data.items.filter(i=>i.childName===activeChild&&!i._deleted);if(cat&&cat!=='all'){if(cat==='uncategorised')r=r.filter(i=>!i.category);else r=r.filter(i=>i.category===cat)}if(tag)r=r.filter(i=>Array.isArray(i.tags)&&i.tags.some(t=>t.toLowerCase()===tag.toLowerCase()));if(query){const q=query.toLowerCase();r=r.filter(i=>i.text.toLowerCase().includes(q)||(Array.isArray(i.tags)&&i.tags.some(t=>t.toLowerCase().includes(q))))}r.sort((a,b)=>{if(a.pinned&&!b.pinned)return-1;if(!a.pinned&&b.pinned)return 1;const da=new Date(a.createdAt),db=new Date(b.createdAt);return sort==='oldest'?da-db:db-da});return r}
+// Kick off initial sync on load
+if (cloudUrl && validateCloudUrl(cloudUrl)) {
+  setSyncStatus('loading', 'Connecting…');
+  setTimeout(fetchCloudData, 500);
+}
 
-// UNDO
-let undoStack=[],undoTimer=null;const undoToast=document.getElementById('undo-toast'),undoText=document.getElementById('undo-text');
-function pushUndo(label,item){undoStack=[{label,item}];undoText.textContent=label;undoToast.classList.add('show');clearTimeout(undoTimer);undoTimer=setTimeout(()=>{undoToast.classList.remove('show');undoStack=[]},6000)}
-document.getElementById('undo-btn').addEventListener('click',()=>{if(!undoStack.length)return;restoreItem(undoStack.pop().item);undoToast.classList.remove('show');clearTimeout(undoTimer);renderCurrentView()});
 
-// THEME
-const themeToggle=document.getElementById('theme-toggle');let currentTheme=localStorage.getItem(THEME_KEY)||'light';applyTheme(currentTheme);
-function applyTheme(t){currentTheme=t;document.body.setAttribute('data-theme',t);themeToggle.innerHTML=t==='dark'?'&#9790;':'&#9788;';localStorage.setItem(THEME_KEY,t)}
-themeToggle.addEventListener('click',()=>applyTheme(currentTheme==='dark'?'light':'dark'));
+// =============================================================================
+// CORE DATA OPERATIONS
+// =============================================================================
 
-// VIEWS
-const views=['capture','review','timeline'];let currentView='capture';
-function switchView(v){currentView=v;views.forEach(x=>document.getElementById('view-'+x).classList.toggle('hidden',x!==v));
-  document.querySelectorAll('#nav-desktop button, #nav-mobile button').forEach(b=>{b.classList.toggle('active',b.dataset.view===v)});
-  if(v==='review')renderReview();if(v==='timeline')renderTimeline();if(v==='capture')document.getElementById('capture-input').focus();updateBadge();updateStats()}
-document.querySelectorAll('#nav-desktop button, #nav-mobile button').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
+function addItem(text, category, tags, dateOverride) {
+  const item = {
+    id:        Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    text:      text.trim(),
+    category:  category || '',
+    tags:      (tags || []).map(t => t.trim()).filter(Boolean),
+    childName: activeChild,
+    createdAt: dateOverride || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    pinned:    false,
+  };
 
-// CAPTURE
-const captureInput=document.getElementById('capture-input'),tagInput=document.getElementById('tag-input'),tagContainer=document.getElementById('tag-container'),tagDropdown=document.getElementById('tag-dropdown'),captureFlash=document.getElementById('capture-flash'),charCount=document.getElementById('char-count'),dateOverride=document.getElementById('date-override');
-let activeTags=[],selectedCategory='';
-function setDateNow(){const n=new Date(),o=n.getTimezoneOffset(),l=new Date(n.getTime()-o*60000);dateOverride.value=l.toISOString().slice(0,16)}
-setDateNow();document.getElementById('date-now-btn').addEventListener('click',setDateNow);
-document.getElementById('date-yest-btn').addEventListener('click',()=>{const n=new Date();n.setDate(n.getDate()-1);const o=n.getTimezoneOffset(),l=new Date(n.getTime()-o*60000);dateOverride.value=l.toISOString().slice(0,16);showFlash('Set to Yesterday')});
-captureInput.addEventListener('input',()=>{charCount.textContent=captureInput.value.length});
-document.querySelectorAll('#category-bar .cat-chip').forEach(chip=>{chip.addEventListener('click',()=>{const c=chip.dataset.cat;if(selectedCategory===c){selectedCategory='';chip.classList.remove('selected')}else{selectedCategory=c;document.querySelectorAll('#category-bar .cat-chip').forEach(x=>x.classList.remove('selected'));chip.classList.add('selected')}})});
-function renderActiveTags(){tagContainer.querySelectorAll('.tag-chip').forEach(c=>c.remove());activeTags.forEach((t,i)=>{const chip=document.createElement('div');chip.className='tag-chip';chip.innerHTML=eh(t)+' <span class="tag-remove" data-index="'+i+'">&times;</span>';tagContainer.insertBefore(chip,tagInput)})}
-tagContainer.addEventListener('click',e=>{if(e.target.classList.contains('tag-remove')){activeTags.splice(parseInt(e.target.dataset.index),1);renderActiveTags()}else if(e.target===tagContainer)tagInput.focus()});
-function addActiveTag(s){const c=s.trim();if(c&&!activeTags.includes(c)){activeTags.push(c);renderActiveTags()}tagInput.value=''}
-function doCapture(){const text=captureInput.value.trim();if(!text){captureInput.focus();return}if(tagInput.value.trim())addActiveTag(tagInput.value);let d=null;if(dateOverride.value)d=new Date(dateOverride.value).toISOString();addItem(text,selectedCategory,[...activeTags],d);captureInput.value='';charCount.textContent='0';activeTags=[];renderActiveTags();tagInput.value='';tagDropdown.classList.remove('open');selectedCategory='';document.querySelectorAll('#category-bar .cat-chip').forEach(c=>c.classList.remove('selected'));setDateNow();showFlash('Saved to Inbox');captureInput.focus();updateBadge();updateStats()}
-document.getElementById('capture-btn').addEventListener('click',doCapture);captureInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();doCapture()}});
+  data.items.unshift(item);
+  data.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-// TAG AUTOCOMPLETE
-function setupTagAutocomplete(input,dropdown,onSelect){let hl=-1;function render(){const v=input.value.toLowerCase(),m=data.tags.filter(t=>t.toLowerCase().includes(v));let h='';m.forEach((t,i)=>{h+='<div class="tag-option" data-tag="'+ea(t)+'" data-index="'+i+'">'+eh(t)+'</div>'});if(v&&!data.tags.some(t=>t.toLowerCase()===v)){h+='<div class="tag-option" style="color:var(--accent)" data-tag="'+ea(input.value.trim())+'" data-index="'+m.length+'">+ Create "'+eh(input.value.trim())+'"</div>'}dropdown.innerHTML=h;hl=-1;if(h)dropdown.classList.add('open');else dropdown.classList.remove('open')}function sel(tag){if(onSelect)onSelect(tag);else input.value=tag;dropdown.classList.remove('open')}input.addEventListener('input',render);input.addEventListener('focus',render);input.addEventListener('keydown',e=>{const opts=dropdown.querySelectorAll('.tag-option');if(e.key==='Enter'){if(dropdown.classList.contains('open')&&hl>=0){e.preventDefault();sel(opts[hl].dataset.tag)}else if(input.value.trim()){e.preventDefault();if(onSelect)onSelect(input.value.trim())}}else if(e.key==='ArrowDown'){if(!dropdown.classList.contains('open'))return;e.preventDefault();hl=Math.min(hl+1,opts.length-1);opts.forEach((o,i)=>o.classList.toggle('highlighted',i===hl))}else if(e.key==='ArrowUp'){if(!dropdown.classList.contains('open'))return;e.preventDefault();hl=Math.max(hl-1,0);opts.forEach((o,i)=>o.classList.toggle('highlighted',i===hl))}else if(e.key==='Escape'){dropdown.classList.remove('open')}else if(e.key===','&&onSelect){e.preventDefault();if(input.value.trim())onSelect(input.value.trim())}});dropdown.addEventListener('click',e=>{const o=e.target.closest('.tag-option');if(o)sel(o.dataset.tag)});document.addEventListener('click',e=>{if(!input.contains(e.target)&&!dropdown.contains(e.target)&&!e.target.closest('.tag-container'))dropdown.classList.remove('open')})}
-setupTagAutocomplete(tagInput,tagDropdown,tag=>addActiveTag(tag));
-document.getElementById('search-clear').addEventListener('click',()=>{document.getElementById('search-input').value='';document.getElementById('search-wrap').classList.remove('has-value');renderTimeline()});
-document.getElementById('search-input').addEventListener('input',function(){document.getElementById('search-wrap').classList.toggle('has-value',!!this.value);renderTimeline()});
+  // Register any new tags
+  item.tags.forEach(t => { if (!data.tags.includes(t)) data.tags.push(t); });
+  data.tags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
-// REVIEW & TIMELINE RENDER
-function renderReview(){const list=document.getElementById('review-list'),items=getUncategorised();document.getElementById('review-count').textContent=items.length+' left';if(!items.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#10024;</div><h3>All caught up</h3><p>No new moments for '+eh(activeChild)+'.</p></div>';return}
-list.innerHTML=items.map((item,idx)=>'<div class="item-card" data-id="'+ea(item.id)+'"><textarea class="item-text-edit" data-id="'+ea(item.id)+'">'+et(item.text)+'</textarea><div class="review-cats">'+CATEGORIES.map(c=>'<button class="review-cat-btn '+(item.category===c?'selected':'')+'" data-cat="'+c+'" data-id="'+ea(item.id)+'">'+c.charAt(0).toUpperCase()+c.slice(1)+'</button>').join('')+'</div><div class="item-footer"><div class="item-meta">'+(item.tags||[]).map(t=>'<span class="item-tag">'+eh(t)+'</span>').join('')+'<span>'+formatTime(item.createdAt)+'</span></div><button class="icon-btn delete" data-action="delete" data-id="'+ea(item.id)+'" title="Remove"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div></div>').join('');
-list.querySelectorAll('.review-cat-btn').forEach(b=>{b.addEventListener('click',()=>{updateItem(b.dataset.id,{category:b.dataset.cat});renderReview();updateBadge();updateStats()})});
-list.querySelectorAll('.icon-btn.delete').forEach(b=>{b.addEventListener('click',()=>{const rm=deleteItem(b.dataset.id);if(rm)pushUndo('Removed',rm);renderReview();updateBadge();updateStats()})});
-list.querySelectorAll('textarea.item-text-edit').forEach(a=>{autoSize(a);a.addEventListener('input',()=>autoSize(a));a.addEventListener('blur',()=>{const item=data.items.find(i=>i.id===a.dataset.id);if(item&&item.text!==a.value)updateItem(a.dataset.id,{text:a.value.trim()})})})}
-function autoSize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px'}
+  saveData(data);
+  return item;
+}
 
-let activeCat='all';
-document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(b=>{b.addEventListener('click',()=>{activeCat=b.dataset.cat;document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(x=>x.className='cat-filter-btn');const m={all:'active-all',quote:'active-quote',first:'active-first',funny:'active-funny',neat:'active-neat',note:'active-note',uncategorised:'active-all'};b.classList.add(m[activeCat]||'active-all');renderTimeline()})});
-document.getElementById('sort-select').addEventListener('change',()=>renderTimeline());
+function updateItem(id, updates) {
+  const item = data.items.find(i => i.id === id);
+  if (!item) return;
+  Object.assign(item, updates, { updatedAt: new Date().toISOString() });
+  if (updates.tags) {
+    updates.tags.forEach(t => { if (!data.tags.includes(t)) data.tags.push(t); });
+  }
+  saveData(data);
+}
 
-function renderTimeline(){const query=document.getElementById('search-input').value,sort=document.getElementById('sort-select').value,results=searchItems(query,null,activeCat,sort),list=document.getElementById('timeline-list');
-if(!results.length){list.innerHTML='<div class="review-empty"><div class="review-empty-icon">&#128221;</div><h3>No moments found</h3><p>Capture something for '+eh(activeChild)+'.</p></div>';return}
-const groups=groupByDate(results);let h='';for(const[label,items]of groups){h+='<div class="date-group-label">'+eh(label)+'</div>';h+=items.map(item=>{const cc=item.category||'',cl=item.category?item.category.charAt(0).toUpperCase()+item.category.slice(1):'Uncategorised',isQ=item.category==='quote',dt=isQ?'<span class="quote-mark">&ldquo;</span>'+eh(item.text)+'<span class="quote-mark">&rdquo;</span>':eh(item.text);return'<div class="item-card '+(item.pinned?'pinned':'')+'" data-id="'+ea(item.id)+'"><div class="item-text">'+(item.pinned?'<span style="color:var(--accent);margin-right:4px">&#9873;</span> ':'')+dt+'</div><div class="item-footer"><div class="item-meta"><span class="cat-badge '+cc+'">'+cl+'</span>'+(item.tags||[]).map(t=>'<span class="item-tag">'+eh(t)+'</span>').join('')+'<span>'+formatTimeShort(item.createdAt)+'</span></div><div class="item-actions"><button class="icon-btn '+(item.pinned?'active-pin':'')+'" data-action="pin" data-id="'+ea(item.id)+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg></button><button class="icon-btn delete" data-action="delete" data-id="'+ea(item.id)+'"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div></div></div>'}).join('')}list.innerHTML=h;
-list.querySelectorAll('.icon-btn').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.id,a=b.dataset.action;if(a==='delete'){const rm=deleteItem(id);if(rm)pushUndo('Deleted',rm)}else if(a==='pin')togglePin(id);renderTimeline();updateBadge();updateStats()})})}
-function groupByDate(items){const g=new Map(),now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate()),yesterday=new Date(today);yesterday.setDate(today.getDate()-1);const weekAgo=new Date(today);weekAgo.setDate(today.getDate()-7);items.forEach(item=>{const d=new Date(item.createdAt);let l;if(d>=today)l='Today';else if(d>=yesterday)l='Yesterday';else if(d>=weekAgo)l='This Week';else l=d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});if(!g.has(l))g.set(l,[]);g.get(l).push(item)});return g}
+function togglePin(id) {
+  const item = data.items.find(i => i.id === id);
+  if (item) { item.pinned = !item.pinned; saveData(data); }
+}
 
-// STATS & UTILS
-function updateBadge(){const c=getUncategorised().length;document.getElementById('review-badge-desk').textContent=c;document.getElementById('review-badge-desk').classList.toggle('hidden',c===0);document.getElementById('review-badge-mob').textContent=c;document.getElementById('review-badge-mob').classList.toggle('hidden',c===0)}
-function updateStats(){const ci=getChildItems(),del=data.items.filter(i=>i._deleted).length;let s=ci.length+' moments';if(data.children.length>1)s+=' ('+getActiveItems().length+' total)';if(del>0)s+=' \xb7 '+del+' in trash';document.getElementById('stats-text').textContent=s;document.getElementById('purge-btn').style.display=del>0?'':'none'}
-function eh(s){if(typeof s!=='string')return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
-function ea(s){if(typeof s!=='string')return'';return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function et(s){if(typeof s!=='string')return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
-function formatTime(iso){const d=new Date(iso),now=new Date(),diff=now-d;if(diff<0)return d.toLocaleDateString();if(diff<60000)return'just now';if(diff<3600000)return Math.floor(diff/60000)+'m ago';if(diff<86400000)return Math.floor(diff/3600000)+'h ago';if(diff<172800000)return'yesterday';return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}
-function formatTimeShort(iso){return formatTime(iso)}
-function showFlash(t){document.getElementById('flash-text').textContent=t;captureFlash.classList.add('show');setTimeout(()=>captureFlash.classList.remove('show'),1500)}
+function deleteItem(id) {
+  const item = data.items.find(i => i.id === id);
+  if (!item) return null;
+  item._deleted = true;
+  item._deletedAt = new Date().toISOString();
+  saveData(data);
+  // Return a clean (undeleted) copy for undo
+  return { ...item, _deleted: false, _deletedAt: null };
+}
 
-// MODAL
-let modalCallback=null;const modal={overlay:document.getElementById('modal-overlay'),title:document.getElementById('modal-title'),body:document.getElementById('modal-body'),content:document.getElementById('modal-content'),cancel:document.getElementById('modal-cancel'),confirm:document.getElementById('modal-confirm'),open(t,b,cb,onC,ct,danger){modal.title.textContent=t;modal.body.textContent=b;modal.content.innerHTML='';if(cb)cb(modal.content);modal.confirm.textContent=ct||'Confirm';modal.confirm.className=danger?'modal-btn confirm-danger':'modal-btn primary';modal.overlay.classList.add('open');modalCallback=onC;const fi=modal.content.querySelector('input');if(fi)setTimeout(()=>fi.focus(),100)},close(){modal.overlay.classList.remove('open');modalCallback=null}};
-modal.cancel.addEventListener('click',modal.close);modal.confirm.addEventListener('click',()=>{if(modalCallback)modalCallback();modal.close()});modal.overlay.addEventListener('click',e=>{if(e.target===modal.overlay)modal.close()});
+function restoreItem(item) {
+  if (!item) return;
+  const existing = data.items.find(i => i.id === item.id);
+  if (existing) {
+    existing._deleted = false;
+    existing._deletedAt = null;
+  } else {
+    item._deleted = false;
+    item._deletedAt = null;
+    data.items.push(item);
+  }
+  data.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  saveData(data);
+}
 
-// SETTINGS ACTIONS
-document.getElementById('export-btn').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='pocketpip-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url)});
-document.getElementById('import-btn').addEventListener('click',()=>document.getElementById('import-file').click());
-document.getElementById('import-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imp=JSON.parse(reader.result);if(imp.items&&Array.isArray(imp.items)){const ids=new Set(data.items.map(i=>i.id));let c=0;imp.items.forEach(i=>{if(!ids.has(i.id)){if(!Array.isArray(i.tags))i.tags=i.tag?[i.tag]:[];if(!i.category)i.category='';if(!i.createdAt)i.createdAt=new Date().toISOString();if(!i.childName)i.childName=activeChild;i.pinned=!!i.pinned;delete i.tag;data.items.push(i);c++}});if(Array.isArray(imp.children))imp.children.forEach(ch=>{if(!data.children.includes(ch))data.children.push(ch)});if(imp.tags)imp.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));saveData(data);renderChildDropdown();renderCurrentView();showFlash('Imported '+c+' moments')}else throw new Error('Invalid')}catch(err){alert('Invalid file.')}};reader.readAsText(file);e.target.value=''});
-document.getElementById('clear-btn').addEventListener('click',()=>{modal.open('Reset App?','Deletes all data locally. Cloud data remains unless synced.',ct=>{const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.placeholder='Type DELETE';inp.addEventListener('input',()=>{modal.confirm.disabled=inp.value!=='DELETE';modal.confirm.style.opacity=inp.value==='DELETE'?'1':'0.4'});ct.appendChild(inp)},()=>{data={children:['Malcolm'],tags:[],items:[]};saveData(data);activeChild='Malcolm';localStorage.setItem(ACTIVE_CHILD_KEY,activeChild);setActiveChild(activeChild);renderCurrentView()},'Delete',true);modal.confirm.disabled=true;modal.confirm.style.opacity='0.4'});
-document.getElementById('purge-btn').addEventListener('click',()=>{const n=data.items.filter(i=>i._deleted).length;modal.open('Empty trash?','Permanently remove '+n+' items.',null,()=>{purgeAllDeleted();renderCurrentView();showFlash('Trash emptied')},'Empty',true)});
-document.getElementById('cloud-btn').addEventListener('click',()=>{modal.open('Cloud Sync','Connect to your Google Apps Script to sync between devices.',ct=>{
-  const ul=document.createElement('label');ul.textContent='URL';ul.style.fontSize='12px';ct.appendChild(ul);
-  const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.value=cloudUrl;inp.id='cloud-url';inp.placeholder='https://script.google.com/macros/s/…';ct.appendChild(inp);
-  const kl=document.createElement('label');kl.textContent='Secret Key (optional)';kl.style.fontSize='12px';ct.appendChild(kl);
-  const ki=document.createElement('input');ki.type='password';ki.className='modal-input';ki.value=getCloudSecret();ki.id='cloud-key';ki.placeholder='Leave blank if you did not set one';ct.appendChild(ki);
-  const testWrap=document.createElement('div');testWrap.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
-  const testBtn=document.createElement('button');testBtn.className='subtle-btn';testBtn.type='button';testBtn.style.cssText='font-size:12px;white-space:nowrap';testBtn.textContent='Test Connection';
-  const testResult=document.createElement('span');testResult.style.cssText='font-size:12px;line-height:1.3;color:var(--text-secondary)';
-  testWrap.appendChild(testBtn);testWrap.appendChild(testResult);ct.appendChild(testWrap);
-  testBtn.addEventListener('click',async()=>{
-    testBtn.textContent='Testing…';testBtn.disabled=true;testResult.textContent='';
-    const result=await testCloudConnection(inp.value.trim(),ki.value.trim());
-    testBtn.textContent='Test Connection';testBtn.disabled=false;
-    testResult.style.color=result.ok?'var(--cat-first)':'var(--danger)';
-    testResult.textContent=(result.ok?'✓ ':'✗ ')+result.msg;
+function purgeAllDeleted() {
+  data.items = data.items.filter(i => !i._deleted);
+  saveData(data);
+}
+
+// --- Queries ---
+
+function getChildItems() {
+  return data.items.filter(i => i.childName === activeChild && !i._deleted);
+}
+
+function getUncategorised() {
+  return data.items.filter(i => i.childName === activeChild && !i.category && !i._deleted);
+}
+
+function getActiveItems() {
+  return data.items.filter(i => !i._deleted);
+}
+
+function searchItems(query, tag, category, sort) {
+  let results = data.items.filter(i => i.childName === activeChild && !i._deleted);
+
+  if (category && category !== 'all') {
+    if (category === 'uncategorised') results = results.filter(i => !i.category);
+    else results = results.filter(i => i.category === category);
+  }
+
+  if (tag) {
+    results = results.filter(i =>
+      Array.isArray(i.tags) && i.tags.some(t => t.toLowerCase() === tag.toLowerCase())
+    );
+  }
+
+  if (query) {
+    const q = query.toLowerCase();
+    results = results.filter(i =>
+      i.text.toLowerCase().includes(q) ||
+      (Array.isArray(i.tags) && i.tags.some(t => t.toLowerCase().includes(q)))
+    );
+  }
+
+  results.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    const da = new Date(a.createdAt), db = new Date(b.createdAt);
+    return sort === 'oldest' ? da - db : db - da;
   });
-},()=>{const u=document.getElementById('cloud-url').value.trim(),k=document.getElementById('cloud-key').value.trim();if(u){localStorage.setItem(CLOUD_URL_KEY,u);localStorage.setItem(CLOUD_KEY_STORAGE,k);cloudUrl=u;fetchCloudData()}else{localStorage.removeItem(CLOUD_URL_KEY);localStorage.removeItem(CLOUD_KEY_STORAGE);cloudUrl='';setSyncStatus('','No cloud')}},'Save')});
 
-document.getElementById('diagnose-btn').addEventListener('click',()=>showSyncDiagnostics());
+  return results;
+}
 
+
+// =============================================================================
+// UNDO
+// =============================================================================
+
+let undoStack = [];
+let undoTimer = null;
+
+const undoToast = document.getElementById('undo-toast');
+const undoText  = document.getElementById('undo-text');
+
+function pushUndo(label, item) {
+  undoStack = [{ label, item }];
+  undoText.textContent = label;
+  undoToast.classList.add('show');
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => {
+    undoToast.classList.remove('show');
+    undoStack = [];
+  }, 6000);
+}
+
+document.getElementById('undo-btn').addEventListener('click', () => {
+  if (!undoStack.length) return;
+  restoreItem(undoStack.pop().item);
+  undoToast.classList.remove('show');
+  clearTimeout(undoTimer);
+  renderCurrentView();
+});
+
+
+// =============================================================================
+// THEME
+// =============================================================================
+
+const themeToggle = document.getElementById('theme-toggle');
+let currentTheme  = localStorage.getItem(THEME_KEY) || 'light';
+applyTheme(currentTheme);
+
+function applyTheme(theme) {
+  currentTheme = theme;
+  document.body.setAttribute('data-theme', theme);
+  themeToggle.innerHTML = theme === 'dark' ? '&#9790;' : '&#9788;';
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+themeToggle.addEventListener('click', () => {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+});
+
+
+// =============================================================================
+// VIEWS & NAVIGATION
+// =============================================================================
+
+const views = ['capture', 'review', 'timeline'];
+let currentView = 'capture';
+
+function switchView(v) {
+  currentView = v;
+  views.forEach(x => document.getElementById('view-' + x).classList.toggle('hidden', x !== v));
+  document.querySelectorAll('#nav-desktop button, #nav-mobile button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === v);
+  });
+  if (v === 'review')   renderReview();
+  if (v === 'timeline') renderTimeline();
+  if (v === 'capture')  document.getElementById('capture-input').focus();
+  updateBadge();
+  updateStats();
+}
+
+function renderCurrentView() {
+  if (currentView === 'review')   renderReview();
+  if (currentView === 'timeline') renderTimeline();
+}
+
+document.querySelectorAll('#nav-desktop button, #nav-mobile button').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+
+// =============================================================================
+// CAPTURE VIEW
+// =============================================================================
+
+const captureInput  = document.getElementById('capture-input');
+const tagInput      = document.getElementById('tag-input');
+const tagContainer  = document.getElementById('tag-container');
+const tagDropdown   = document.getElementById('tag-dropdown');
+const captureFlash  = document.getElementById('capture-flash');
+const charCount     = document.getElementById('char-count');
+const dateOverride  = document.getElementById('date-override');
+
+let activeTags       = [];
+let selectedCategory = '';
+
+// Date helpers
+function setDateNow() {
+  const now    = new Date();
+  const offset = now.getTimezoneOffset();
+  const local  = new Date(now.getTime() - offset * 60000);
+  dateOverride.value = local.toISOString().slice(0, 16);
+}
+
+setDateNow();
+
+document.getElementById('date-now-btn').addEventListener('click', setDateNow);
+
+document.getElementById('date-yest-btn').addEventListener('click', () => {
+  const d      = new Date();
+  d.setDate(d.getDate() - 1);
+  const offset = d.getTimezoneOffset();
+  const local  = new Date(d.getTime() - offset * 60000);
+  dateOverride.value = local.toISOString().slice(0, 16);
+  showFlash('Set to Yesterday');
+});
+
+// Character count
+captureInput.addEventListener('input', () => {
+  charCount.textContent = captureInput.value.length;
+});
+
+// Category chip selection (toggle)
+document.querySelectorAll('#category-bar .cat-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const cat = chip.dataset.cat;
+    if (selectedCategory === cat) {
+      selectedCategory = '';
+      chip.classList.remove('selected');
+    } else {
+      selectedCategory = cat;
+      document.querySelectorAll('#category-bar .cat-chip').forEach(x => x.classList.remove('selected'));
+      chip.classList.add('selected');
+    }
+  });
+});
+
+// Tag chips rendering
+function renderActiveTags() {
+  tagContainer.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  activeTags.forEach((tag, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'tag-chip';
+    chip.innerHTML = eh(tag) + ` <span class="tag-remove" data-index="${i}">&times;</span>`;
+    tagContainer.insertBefore(chip, tagInput);
+  });
+}
+
+tagContainer.addEventListener('click', e => {
+  if (e.target.classList.contains('tag-remove')) {
+    activeTags.splice(parseInt(e.target.dataset.index), 1);
+    renderActiveTags();
+  } else if (e.target === tagContainer) {
+    tagInput.focus();
+  }
+});
+
+function addActiveTag(str) {
+  const clean = str.trim();
+  if (clean && !activeTags.includes(clean)) {
+    activeTags.push(clean);
+    renderActiveTags();
+  }
+  tagInput.value = '';
+}
+
+// Save the current capture
+function doCapture() {
+  const text = captureInput.value.trim();
+  if (!text) { captureInput.focus(); return; }
+
+  // Flush any half-typed tag
+  if (tagInput.value.trim()) addActiveTag(tagInput.value);
+
+  const date = dateOverride.value ? new Date(dateOverride.value).toISOString() : null;
+  addItem(text, selectedCategory, [...activeTags], date);
+
+  // Reset form
+  captureInput.value = '';
+  charCount.textContent = '0';
+  activeTags = [];
+  renderActiveTags();
+  tagInput.value = '';
+  tagDropdown.classList.remove('open');
+  selectedCategory = '';
+  document.querySelectorAll('#category-bar .cat-chip').forEach(c => c.classList.remove('selected'));
+  setDateNow();
+
+  showFlash('Saved to Inbox');
+  captureInput.focus();
+  updateBadge();
+  updateStats();
+}
+
+document.getElementById('capture-btn').addEventListener('click', doCapture);
+
+captureInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    doCapture();
+  }
+});
+
+
+// =============================================================================
+// TAG AUTOCOMPLETE (reusable for capture and search)
+// =============================================================================
+
+function setupTagAutocomplete(input, dropdown, onSelect) {
+  let highlightIndex = -1;
+
+  function renderDropdown() {
+    const val     = input.value.toLowerCase();
+    const matches = data.tags.filter(t => t.toLowerCase().includes(val));
+    let html = matches.map((t, i) =>
+      `<div class="tag-option" data-tag="${ea(t)}" data-index="${i}">${eh(t)}</div>`
+    ).join('');
+
+    // Offer to create a new tag if it doesn't exist yet
+    if (val && !data.tags.some(t => t.toLowerCase() === val)) {
+      html += `<div class="tag-option" style="color:var(--accent)" data-tag="${ea(input.value.trim())}" data-index="${matches.length}">+ Create "${eh(input.value.trim())}"</div>`;
+    }
+
+    dropdown.innerHTML = html;
+    highlightIndex = -1;
+    dropdown.classList.toggle('open', !!html);
+  }
+
+  function selectTag(tag) {
+    if (onSelect) onSelect(tag);
+    else input.value = tag;
+    dropdown.classList.remove('open');
+  }
+
+  input.addEventListener('input', renderDropdown);
+  input.addEventListener('focus', renderDropdown);
+
+  input.addEventListener('keydown', e => {
+    const opts = dropdown.querySelectorAll('.tag-option');
+
+    if (e.key === 'Enter') {
+      if (dropdown.classList.contains('open') && highlightIndex >= 0) {
+        e.preventDefault();
+        selectTag(opts[highlightIndex].dataset.tag);
+      } else if (input.value.trim()) {
+        e.preventDefault();
+        if (onSelect) onSelect(input.value.trim());
+      }
+    } else if (e.key === 'ArrowDown') {
+      if (!dropdown.classList.contains('open')) return;
+      e.preventDefault();
+      highlightIndex = Math.min(highlightIndex + 1, opts.length - 1);
+      opts.forEach((o, i) => o.classList.toggle('highlighted', i === highlightIndex));
+    } else if (e.key === 'ArrowUp') {
+      if (!dropdown.classList.contains('open')) return;
+      e.preventDefault();
+      highlightIndex = Math.max(highlightIndex - 1, 0);
+      opts.forEach((o, i) => o.classList.toggle('highlighted', i === highlightIndex));
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('open');
+    } else if (e.key === ',' && onSelect) {
+      e.preventDefault();
+      if (input.value.trim()) onSelect(input.value.trim());
+    }
+  });
+
+  dropdown.addEventListener('click', e => {
+    const opt = e.target.closest('.tag-option');
+    if (opt) selectTag(opt.dataset.tag);
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !dropdown.contains(e.target) && !e.target.closest('.tag-container')) {
+      dropdown.classList.remove('open');
+    }
+  });
+}
+
+setupTagAutocomplete(tagInput, tagDropdown, tag => addActiveTag(tag));
+
+// Search bar
+document.getElementById('search-clear').addEventListener('click', () => {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-wrap').classList.remove('has-value');
+  renderTimeline();
+});
+
+document.getElementById('search-input').addEventListener('input', function () {
+  document.getElementById('search-wrap').classList.toggle('has-value', !!this.value);
+  renderTimeline();
+});
+
+
+// =============================================================================
+// REVIEW VIEW
+// =============================================================================
+
+function renderReview() {
+  const list  = document.getElementById('review-list');
+  const items = getUncategorised();
+  document.getElementById('review-count').textContent = items.length + ' left';
+
+  if (!items.length) {
+    list.innerHTML = `
+      <div class="review-empty">
+        <div class="review-empty-icon">&#10024;</div>
+        <h3>All caught up</h3>
+        <p>No new moments for ${eh(activeChild)}.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div class="item-card" data-id="${ea(item.id)}">
+      <textarea class="item-text-edit" data-id="${ea(item.id)}">${et(item.text)}</textarea>
+      <div class="review-cats">
+        ${CATEGORIES.map(c => `
+          <button class="review-cat-btn ${item.category === c ? 'selected' : ''}" data-cat="${c}" data-id="${ea(item.id)}">
+            ${c.charAt(0).toUpperCase() + c.slice(1)}
+          </button>`).join('')}
+      </div>
+      <div class="item-footer">
+        <div class="item-meta">
+          ${(item.tags || []).map(t => `<span class="item-tag">${eh(t)}</span>`).join('')}
+          <span>${formatTime(item.createdAt)}</span>
+        </div>
+        <button class="icon-btn delete" data-action="delete" data-id="${ea(item.id)}" title="Remove">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+
+  // Assign category
+  list.querySelectorAll('.review-cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      updateItem(btn.dataset.id, { category: btn.dataset.cat });
+      renderReview();
+      updateBadge();
+      updateStats();
+    });
+  });
+
+  // Delete
+  list.querySelectorAll('.icon-btn.delete').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const removed = deleteItem(btn.dataset.id);
+      if (removed) pushUndo('Removed', removed);
+      renderReview();
+      updateBadge();
+      updateStats();
+    });
+  });
+
+  // Auto-resize textareas and save edits on blur
+  list.querySelectorAll('textarea.item-text-edit').forEach(ta => {
+    autoSize(ta);
+    ta.addEventListener('input', () => autoSize(ta));
+    ta.addEventListener('blur', () => {
+      const item = data.items.find(i => i.id === ta.dataset.id);
+      if (item && item.text !== ta.value) updateItem(ta.dataset.id, { text: ta.value.trim() });
+    });
+  });
+}
+
+function autoSize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+
+// =============================================================================
+// TIMELINE VIEW
+// =============================================================================
+
+let activeCat = 'all';
+
+document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeCat = btn.dataset.cat;
+    // Reset all filter buttons then apply the correct active class
+    document.querySelectorAll('#cat-filters .cat-filter-btn').forEach(x => x.className = 'cat-filter-btn');
+    const classMap = {
+      all: 'active-all', quote: 'active-quote', first: 'active-first',
+      funny: 'active-funny', neat: 'active-neat', note: 'active-note',
+      uncategorised: 'active-all',
+    };
+    btn.classList.add(classMap[activeCat] || 'active-all');
+    renderTimeline();
+  });
+});
+
+document.getElementById('sort-select').addEventListener('change', () => renderTimeline());
+
+function renderTimeline() {
+  const query   = document.getElementById('search-input').value;
+  const sort    = document.getElementById('sort-select').value;
+  const results = searchItems(query, null, activeCat, sort);
+  const list    = document.getElementById('timeline-list');
+
+  if (!results.length) {
+    list.innerHTML = `
+      <div class="review-empty">
+        <div class="review-empty-icon">&#128221;</div>
+        <h3>No moments found</h3>
+        <p>Capture something for ${eh(activeChild)}.</p>
+      </div>`;
+    return;
+  }
+
+  const groups = groupByDate(results);
+  let html = '';
+
+  for (const [label, items] of groups) {
+    html += `<div class="date-group-label">${eh(label)}</div>`;
+    html += items.map(item => {
+      const catClass = item.category || '';
+      const catLabel = item.category
+        ? item.category.charAt(0).toUpperCase() + item.category.slice(1)
+        : 'Uncategorised';
+      const isQuote = item.category === 'quote';
+      const displayText = isQuote
+        ? `<span class="quote-mark">&ldquo;</span>${eh(item.text)}<span class="quote-mark">&rdquo;</span>`
+        : eh(item.text);
+
+      return `
+        <div class="item-card ${item.pinned ? 'pinned' : ''}" data-id="${ea(item.id)}">
+          <div class="item-text">
+            ${item.pinned ? '<span style="color:var(--accent);margin-right:4px">&#9873;</span> ' : ''}
+            ${displayText}
+          </div>
+          <div class="item-footer">
+            <div class="item-meta">
+              <span class="cat-badge ${catClass}">${catLabel}</span>
+              ${(item.tags || []).map(t => `<span class="item-tag">${eh(t)}</span>`).join('')}
+              <span>${formatTime(item.createdAt)}</span>
+            </div>
+            <div class="item-actions">
+              <button class="icon-btn ${item.pinned ? 'active-pin' : ''}" data-action="pin" data-id="${ea(item.id)}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>
+              </button>
+              <button class="icon-btn delete" data-action="delete" data-id="${ea(item.id)}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  list.innerHTML = html;
+
+  list.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id     = btn.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'delete') {
+        const removed = deleteItem(id);
+        if (removed) pushUndo('Deleted', removed);
+      } else if (action === 'pin') {
+        togglePin(id);
+      }
+      renderTimeline();
+      updateBadge();
+      updateStats();
+    });
+  });
+}
+
+function groupByDate(items) {
+  const groups    = new Map();
+  const now       = new Date();
+  const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const weekAgo   = new Date(today); weekAgo.setDate(today.getDate() - 7);
+
+  items.forEach(item => {
+    const d = new Date(item.createdAt);
+    let label;
+    if (d >= today)     label = 'Today';
+    else if (d >= yesterday) label = 'Yesterday';
+    else if (d >= weekAgo)   label = 'This Week';
+    else label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(item);
+  });
+
+  return groups;
+}
+
+
+// =============================================================================
+// STATS & UI HELPERS
+// =============================================================================
+
+function updateBadge() {
+  const count = getUncategorised().length;
+  ['review-badge-desk', 'review-badge-mob'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = count;
+    el.classList.toggle('hidden', count === 0);
+  });
+}
+
+function updateStats() {
+  const childItems  = getChildItems();
+  const deletedCount = data.items.filter(i => i._deleted).length;
+
+  let text = childItems.length + ' moments';
+  if (data.children.length > 1) text += ' (' + getActiveItems().length + ' total)';
+  if (deletedCount > 0) text += ' · ' + deletedCount + ' in trash';
+
+  document.getElementById('stats-text').textContent = text;
+  document.getElementById('purge-btn').style.display = deletedCount > 0 ? '' : 'none';
+}
+
+// HTML-escape for inserting user content into innerHTML
+function eh(str) {
+  if (typeof str !== 'string') return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// HTML-escape for use in attribute values (double-quoted)
+function ea(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// HTML-escape for textarea content
+function et(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function formatTime(iso) {
+  const d    = new Date(iso);
+  const now  = new Date();
+  const diff = now - d;
+  if (diff < 0)          return d.toLocaleDateString();
+  if (diff < 60000)      return 'just now';
+  if (diff < 3600000)    return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000)   return Math.floor(diff / 3600000) + 'h ago';
+  if (diff < 172800000)  return 'yesterday';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function showFlash(text) {
+  document.getElementById('flash-text').textContent = text;
+  captureFlash.classList.add('show');
+  setTimeout(() => captureFlash.classList.remove('show'), 1500);
+}
+
+
+// =============================================================================
+// MODAL
+// =============================================================================
+
+let modalCallback = null;
+
+const modal = {
+  overlay: document.getElementById('modal-overlay'),
+  title:   document.getElementById('modal-title'),
+  body:    document.getElementById('modal-body'),
+  content: document.getElementById('modal-content'),
+  cancel:  document.getElementById('modal-cancel'),
+  confirm: document.getElementById('modal-confirm'),
+
+  open(titleText, bodyText, buildContent, onConfirm, confirmLabel, isDanger) {
+    modal.title.textContent   = titleText;
+    modal.body.textContent    = bodyText;
+    modal.content.innerHTML   = '';
+    if (buildContent) buildContent(modal.content);
+    modal.confirm.textContent = confirmLabel || 'Confirm';
+    modal.confirm.className   = isDanger ? 'modal-btn confirm-danger' : 'modal-btn primary';
+    modal.confirm.classList.remove('hidden');
+    modal.cancel.textContent  = 'Cancel';
+    modal.overlay.classList.add('open');
+    modalCallback = onConfirm;
+    // Auto-focus first input if present
+    const firstInput = modal.content.querySelector('input');
+    if (firstInput) setTimeout(() => firstInput.focus(), 100);
+  },
+
+  close() {
+    modal.overlay.classList.remove('open');
+    modalCallback = null;
+  },
+};
+
+modal.cancel.addEventListener('click', modal.close);
+modal.confirm.addEventListener('click', () => { if (modalCallback) modalCallback(); modal.close(); });
+modal.overlay.addEventListener('click', e => { if (e.target === modal.overlay) modal.close(); });
+
+
+// =============================================================================
+// SETTINGS ACTIONS
+// =============================================================================
+
+// Backup — download full data as JSON
+document.getElementById('export-btn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'pocketpip-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Restore — import from JSON backup (merges by id, won't duplicate)
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      if (!imported.items || !Array.isArray(imported.items)) throw new Error('Invalid');
+
+      const existingIds = new Set(data.items.map(i => i.id));
+      let count = 0;
+
+      imported.items.forEach(i => {
+        if (existingIds.has(i.id)) return; // skip duplicates
+        // Normalise the imported item
+        if (!Array.isArray(i.tags)) i.tags = i.tag ? [i.tag] : [];
+        if (!i.category)  i.category  = '';
+        if (!i.createdAt) i.createdAt = new Date().toISOString();
+        if (!i.childName) i.childName = activeChild;
+        i.pinned = !!i.pinned;
+        delete i.tag;
+        data.items.push(i);
+        count++;
+      });
+
+      if (Array.isArray(imported.children)) {
+        imported.children.forEach(c => { if (!data.children.includes(c)) data.children.push(c); });
+      }
+      if (Array.isArray(imported.tags)) {
+        imported.tags.forEach(t => { if (!data.tags.includes(t)) data.tags.push(t); });
+      }
+
+      data.items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      saveData(data);
+      renderChildDropdown();
+      renderCurrentView();
+      showFlash('Imported ' + count + ' moments');
+    } catch (err) {
+      alert('Invalid backup file.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// Reset — wipe all local data (cloud data stays until next sync)
+document.getElementById('clear-btn').addEventListener('click', () => {
+  modal.open(
+    'Reset App?',
+    'Deletes all data locally. Cloud data remains unless synced.',
+    ct => {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'modal-input';
+      inp.placeholder = 'Type DELETE';
+      inp.addEventListener('input', () => {
+        modal.confirm.disabled    = inp.value !== 'DELETE';
+        modal.confirm.style.opacity = inp.value === 'DELETE' ? '1' : '0.4';
+      });
+      ct.appendChild(inp);
+    },
+    () => {
+      data = defaultData();
+      saveData(data);
+      activeChild = 'Malcolm';
+      localStorage.setItem(ACTIVE_CHILD_KEY, activeChild);
+      setActiveChild(activeChild);
+      renderCurrentView();
+    },
+    'Delete',
+    true
+  );
+  modal.confirm.disabled      = true;
+  modal.confirm.style.opacity = '0.4';
+});
+
+// Empty trash — permanently remove soft-deleted items
+document.getElementById('purge-btn').addEventListener('click', () => {
+  const count = data.items.filter(i => i._deleted).length;
+  modal.open(
+    'Empty trash?',
+    'Permanently remove ' + count + ' items.',
+    null,
+    () => { purgeAllDeleted(); renderCurrentView(); showFlash('Trash emptied'); },
+    'Empty',
+    true
+  );
+});
+
+// Cloud settings
+document.getElementById('cloud-btn').addEventListener('click', () => {
+  modal.open(
+    'Cloud Sync',
+    'Connect to your Google Apps Script to sync between devices.',
+    ct => {
+      const urlLabel = document.createElement('label');
+      urlLabel.textContent = 'URL';
+      urlLabel.style.fontSize = '12px';
+      ct.appendChild(urlLabel);
+
+      const urlInput = document.createElement('input');
+      urlInput.type = 'text';
+      urlInput.className = 'modal-input';
+      urlInput.value = cloudUrl;
+      urlInput.id = 'cloud-url';
+      urlInput.placeholder = 'https://script.google.com/macros/s/…';
+      ct.appendChild(urlInput);
+
+      const keyLabel = document.createElement('label');
+      keyLabel.textContent = 'Secret Key (optional)';
+      keyLabel.style.fontSize = '12px';
+      ct.appendChild(keyLabel);
+
+      const keyInput = document.createElement('input');
+      keyInput.type = 'password';
+      keyInput.className = 'modal-input';
+      keyInput.value = getCloudSecret();
+      keyInput.id = 'cloud-key';
+      keyInput.placeholder = 'Leave blank if you did not set one';
+      ct.appendChild(keyInput);
+
+      // Inline test button
+      const testWrap = document.createElement('div');
+      testWrap.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px';
+
+      const testBtn = document.createElement('button');
+      testBtn.className = 'subtle-btn';
+      testBtn.type = 'button';
+      testBtn.style.cssText = 'font-size:12px;white-space:nowrap';
+      testBtn.textContent = 'Test Connection';
+
+      const testResult = document.createElement('span');
+      testResult.style.cssText = 'font-size:12px;line-height:1.3;color:var(--text-secondary)';
+
+      testWrap.appendChild(testBtn);
+      testWrap.appendChild(testResult);
+      ct.appendChild(testWrap);
+
+      testBtn.addEventListener('click', async () => {
+        testBtn.textContent = 'Testing…';
+        testBtn.disabled = true;
+        testResult.textContent = '';
+        const result = await testCloudConnection(urlInput.value.trim(), keyInput.value.trim());
+        testBtn.textContent = 'Test Connection';
+        testBtn.disabled = false;
+        testResult.style.color = result.ok ? 'var(--cat-first)' : 'var(--danger)';
+        testResult.textContent = (result.ok ? '✓ ' : '✗ ') + result.msg;
+      });
+    },
+    () => {
+      const url = document.getElementById('cloud-url').value.trim();
+      const key = document.getElementById('cloud-key').value.trim();
+      if (url) {
+        localStorage.setItem(CLOUD_URL_KEY, url);
+        localStorage.setItem(CLOUD_KEY_STORAGE, key);
+        cloudUrl = url;
+        fetchCloudData();
+      } else {
+        localStorage.removeItem(CLOUD_URL_KEY);
+        localStorage.removeItem(CLOUD_KEY_STORAGE);
+        cloudUrl = '';
+        setSyncStatus('', 'No cloud');
+      }
+    },
+    'Save'
+  );
+});
+
+// Sync diagnostics
+document.getElementById('diagnose-btn').addEventListener('click', () => showSyncDiagnostics());
+
+
+// =============================================================================
 // INIT
-setActiveChild(activeChild);renderChildDropdown();updateBadge();updateStats();
-if(window.innerWidth>600) captureInput.focus();
+// =============================================================================
+
+setActiveChild(activeChild);
+renderChildDropdown();
+updateBadge();
+updateStats();
+
+// Only auto-focus the text input on desktop — on mobile the keyboard popping
+// up immediately on load is jarring
+if (window.innerWidth > 600) captureInput.focus();
+
 </script>
 </body>
 </html>
