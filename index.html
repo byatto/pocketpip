@@ -413,11 +413,14 @@ function validateCloudUrl(u){
   catch{return false}
 }
 function validateCloudData(d){
-  if(!d||typeof d!=='object')return false;
-  if(!Array.isArray(d.items))return false;
-  return d.items.every(i=>i&&typeof i.id==='string'&&typeof i.text==='string');
+  // Only reject if the shape is completely wrong — individual bad items are filtered below
+  if(!d||typeof d!=='object')return{ok:false,reason:'Response is not an object'};
+  if(!Array.isArray(d.items))return{ok:false,reason:'Response has no items array'};
+  return{ok:true};
 }
 function sanitizeCloudItem(item,ch){
+  // Guard: skip items that are fundamentally broken (no id or text)
+  if(!item||typeof item.id==='undefined'||typeof item.text==='undefined')return null;
   return{
     id:String(item.id).slice(0,50),
     text:String(item.text).slice(0,10000),
@@ -445,17 +448,21 @@ function fetchCloudData(){
     })
     .then(cd=>{
       if(cd.error){
-        addSyncLog('pull','error',cd.error);
+        addSyncLog('pull','error','Script error: '+cd.error);
         setSyncStatus('error','Cloud: '+cd.error.slice(0,30));
         return;
       }
-      if(!validateCloudData(cd)){
-        addSyncLog('pull','error','Invalid data structure from cloud');
-        setSyncStatus('error','Bad cloud data');
+      const valid=validateCloudData(cd);
+      if(!valid.ok){
+        addSyncLog('pull','error','Bad response: '+valid.reason);
+        setSyncStatus('error','Bad cloud data: '+valid.reason.slice(0,25));
         return;
       }
       const cc=Array.isArray(cd.children)?cd.children:['Malcolm'];
-      const si=cd.items.map(i=>sanitizeCloudItem(i,cc));
+      // Filter out any null/broken items rather than rejecting the whole pull
+      const si=cd.items.map(i=>sanitizeCloudItem(i,cc)).filter(Boolean);
+      const skipped=cd.items.length-si.length;
+      if(skipped>0)addSyncLog('pull','warn',skipped+' malformed item(s) skipped from cloud');
       const cm=new Map(si.map(i=>[i.id,i])),lm=new Map(data.items.map(i=>[i.id,i])),mm=new Map();
       let newFromCloud=0,conflicts=0;
       for(const[id,item]of cm){
@@ -490,14 +497,23 @@ function fetchCloudData(){
     .catch(e=>{
       console.error('Sync pull error:',e);
       _ss=false;
-      const msg=e.message||'Unknown error';
-      addSyncLog('pull','error',msg);
-      // Give a more useful error message
-      let friendly='Pull failed';
-      if(msg.includes('Failed to fetch')||msg.includes('NetworkError'))friendly='No internet';
-      else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))friendly='Access denied — check key';
-      else if(msg.includes('HTTP 404'))friendly='Script not found — check URL';
-      else if(msg.includes('HTTP 5'))friendly='Google server error — try again';
+      // Try to get a real error message — e may be a SyntaxError (bad JSON), TypeError, etc.
+      const msg=e.message||String(e)||'Unknown error';
+      const logMsg='catch: '+msg;
+      addSyncLog('pull','error',logMsg);
+      let friendly;
+      if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('network'))
+        friendly='No internet connection';
+      else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))
+        friendly='Access denied — check key';
+      else if(msg.includes('HTTP 404'))
+        friendly='Script not found — check URL';
+      else if(msg.includes('HTTP 5'))
+        friendly='Google server error — try again';
+      else if(msg.toLowerCase().includes('json')||msg.includes('SyntaxError'))
+        friendly='Bad response — script returned non-JSON (check Diagnose log)';
+      else
+        friendly='Pull failed: '+msg.slice(0,30);
       setSyncStatus('error',friendly);
     });
 }
@@ -616,8 +632,8 @@ function showSyncDiagnostics(){
         logWrap.innerHTML=log.map(e=>{
           const t=new Date(e.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
           const d=new Date(e.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-          const icon=e.status==='ok'?'✓':'✗';
-          const col=e.status==='ok'?'var(--cat-first)':'var(--danger)';
+          const icon=e.status==='ok'?'✓':e.status==='warn'?'⚠':'✗';
+          const col=e.status==='ok'?'var(--cat-first)':e.status==='warn'?'var(--cat-funny)':'var(--danger)';
           return'<div style="border-bottom:1px solid var(--border-subtle);padding:3px 0"><span style="color:'+col+'">'+icon+'</span> <span style="color:var(--text-muted)">'+d+' '+t+'</span> <b>'+e.direction+'</b> '+eh(e.detail)+'</div>';
         }).join('');
       }
