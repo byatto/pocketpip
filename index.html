@@ -335,6 +335,7 @@
     </div>
     <div class="settings-row" style="justify-content: flex-start; gap: 8px;">
       <button class="subtle-btn" id="cloud-btn">Cloud</button>
+      <button class="subtle-btn" id="diagnose-btn">Diagnose</button>
       <button class="subtle-btn" id="export-btn">Backup</button>
       <button class="subtle-btn" id="import-btn">Restore</button>
       <button class="subtle-btn danger" id="purge-btn" style="display:none">Empty Trash</button>
@@ -378,17 +379,285 @@ function renderChildDropdown(){const dd=document.getElementById('child-dropdown'
 document.getElementById('child-active-btn').addEventListener('click',e=>{e.stopPropagation();document.getElementById('child-dropdown').classList.toggle('open')});document.addEventListener('click',e=>{if(!e.target.closest('.child-selector'))document.getElementById('child-dropdown').classList.remove('open')});
 
 // SYNC
-let cloudUrl=localStorage.getItem(CLOUD_URL_KEY)||'';const syncBtn=document.getElementById('manual-sync-btn'),syncLabel=document.getElementById('sync-label');let syncTimeout=null,lastSyncTime=null;
-function setSyncStatus(s,t){syncBtn.className='subtle-btn';if(s==='loading'){syncLabel.textContent='Syncing...'}else if(s==='ok'){syncLabel.textContent=t||'Synced'}else if(s==='error'){syncBtn.classList.add('danger');syncLabel.textContent=t||'Error'}else{syncLabel.textContent=cloudUrl?'Sync':'Offline'}}
-syncBtn.addEventListener('click',()=>{if(cloudUrl&&validateCloudUrl(cloudUrl))fetchCloudData();else document.getElementById('cloud-btn').click()});
-function validateCloudUrl(u){if(!u)return false;try{const x=new URL(u);return x.hostname==='script.google.com'&&x.pathname.startsWith('/macros/s/')}catch{return false}}
-function validateCloudData(d){if(!d||typeof d!=='object')return false;if(!Array.isArray(d.items))return false;return d.items.every(i=>i&&typeof i.id==='string'&&typeof i.text==='string')}
-function sanitizeCloudItem(item,ch){return{id:String(item.id).slice(0,50),text:String(item.text).slice(0,10000),tags:Array.isArray(item.tags)?item.tags.map(t=>String(t).slice(0,100)).slice(0,20):[],category:CATEGORIES.includes(item.category)?item.category:'',childName:typeof item.childName==='string'?item.childName.slice(0,100):(ch[0]||'Unknown'),createdAt:item.createdAt||new Date().toISOString(),updatedAt:item.updatedAt||null,pinned:!!item.pinned,_deleted:!!item._deleted,_deletedAt:item._deletedAt||null}}
+const SYNC_LOG_KEY='pocketpip_sync_log';
+let cloudUrl=localStorage.getItem(CLOUD_URL_KEY)||'';
+const syncBtn=document.getElementById('manual-sync-btn'),syncLabel=document.getElementById('sync-label');
+let syncTimeout=null,lastSyncTime=null;
+
+// Sync log: stores last 20 sync events with timestamps and outcomes
+function getSyncLog(){try{return JSON.parse(localStorage.getItem(SYNC_LOG_KEY)||'[]')}catch{return[]}}
+function addSyncLog(direction,status,detail){
+  const log=getSyncLog();
+  log.unshift({ts:new Date().toISOString(),direction,status,detail:detail||''});
+  if(log.length>20)log.pop();
+  localStorage.setItem(SYNC_LOG_KEY,JSON.stringify(log));
+}
+function clearSyncLog(){localStorage.removeItem(SYNC_LOG_KEY)}
+
+function setSyncStatus(s,t){
+  syncBtn.className='subtle-btn';
+  if(s==='loading'){syncLabel.textContent='Syncing…'}
+  else if(s==='ok'){syncLabel.textContent=t||'Synced'}
+  else if(s==='error'){syncBtn.classList.add('danger');syncLabel.textContent=t||'Sync error'}
+  else{syncLabel.textContent=cloudUrl?'Sync':'No cloud'}
+}
+
+syncBtn.addEventListener('click',()=>{
+  if(cloudUrl&&validateCloudUrl(cloudUrl))fetchCloudData();
+  else document.getElementById('cloud-btn').click();
+});
+
+function validateCloudUrl(u){
+  if(!u)return false;
+  try{const x=new URL(u);return x.hostname==='script.google.com'&&x.pathname.startsWith('/macros/s/')}
+  catch{return false}
+}
+function validateCloudData(d){
+  if(!d||typeof d!=='object')return false;
+  if(!Array.isArray(d.items))return false;
+  return d.items.every(i=>i&&typeof i.id==='string'&&typeof i.text==='string');
+}
+function sanitizeCloudItem(item,ch){
+  return{
+    id:String(item.id).slice(0,50),
+    text:String(item.text).slice(0,10000),
+    tags:Array.isArray(item.tags)?item.tags.map(t=>String(t).slice(0,100)).slice(0,20):[],
+    category:CATEGORIES.includes(item.category)?item.category:'',
+    childName:typeof item.childName==='string'?item.childName.slice(0,100):(ch[0]||'Unknown'),
+    createdAt:item.createdAt||new Date().toISOString(),
+    updatedAt:item.updatedAt||null,
+    pinned:!!item.pinned,
+    _deleted:!!item._deleted,
+    _deletedAt:item._deletedAt||null
+  }
+}
 function getCloudSecret(){return localStorage.getItem(CLOUD_KEY_STORAGE)||''}
-function fetchCloudData(){if(!cloudUrl||!validateCloudUrl(cloudUrl))return;setSyncStatus('loading','Pulling...');const secret=getCloudSecret();const urlWithKey=cloudUrl+(cloudUrl.includes('?')?'&':'?')+'key='+encodeURIComponent(secret);fetch(urlWithKey,{method:'GET',redirect:'follow'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(cd=>{if(cd.error){setSyncStatus('error',cd.error);return}if(!validateCloudData(cd)){setSyncStatus('error','Invalid data');return}const cc=Array.isArray(cd.children)?cd.children:['Malcolm'];const si=cd.items.map(i=>sanitizeCloudItem(i,cc));const cm=new Map(si.map(i=>[i.id,i])),lm=new Map(data.items.map(i=>[i.id,i])),mm=new Map();for(const[id,item]of cm){const l=lm.get(id);if(!l){mm.set(id,item);continue}if(item._deleted||l._deleted){const w=item._deleted?item:l;mm.set(id,{...w,_deleted:true,_deletedAt:w._deletedAt||new Date().toISOString()});continue}const ct=new Date(item.updatedAt||item.createdAt),lt=new Date(l.updatedAt||l.createdAt);mm.set(id,lt>ct?l:item)}for(const[id,item]of lm){if(!mm.has(id))mm.set(id,item)}_ss=true;data.items=Array.from(mm.values());data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));cc.forEach(c=>{if(!data.children.includes(c))data.children.push(c)});data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));if(Array.isArray(cd.tags)){cd.tags.forEach(t=>{const cl=String(t).slice(0,100);if(cl&&!data.tags.includes(cl))data.tags.push(cl)})}saveData(data);_ss=false;pushToCloud(data);renderChildDropdown();renderCurrentView();lastSyncTime=new Date();setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()))}).catch(e=>{console.error('Sync error:',e);_ss=false;setSyncStatus('error','Pull failed')})}
-function pushToCloud(d){if(!cloudUrl||!validateCloudUrl(cloudUrl))return Promise.resolve();const secret=getCloudSecret();const payload={...d,key:secret};return fetch(cloudUrl,{method:'POST',redirect:'follow',body:JSON.stringify(payload)}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(rd=>{if(rd.error){setSyncStatus('error',rd.error);return}lastSyncTime=new Date();setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()))}).catch(e=>{console.error('Push error:',e);setSyncStatus('error','Push failed')})}
-function triggerCloudSync(d){if(!cloudUrl||!validateCloudUrl(cloudUrl))return;setSyncStatus('loading','Saving...');clearTimeout(syncTimeout);syncTimeout=setTimeout(()=>pushToCloud(d),1500)}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUrl)fetchCloudData()});if(cloudUrl&&validateCloudUrl(cloudUrl)){setSyncStatus('loading','Connecting...');setTimeout(fetchCloudData,500)}
+
+function fetchCloudData(){
+  if(!cloudUrl||!validateCloudUrl(cloudUrl))return;
+  setSyncStatus('loading','Pulling…');
+  const secret=getCloudSecret();
+  const urlWithKey=cloudUrl+(cloudUrl.includes('?')?'&':'?')+'key='+encodeURIComponent(secret);
+  fetch(urlWithKey,{method:'GET',redirect:'follow'})
+    .then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status+' — server rejected request');
+      return r.json();
+    })
+    .then(cd=>{
+      if(cd.error){
+        addSyncLog('pull','error',cd.error);
+        setSyncStatus('error','Cloud: '+cd.error.slice(0,30));
+        return;
+      }
+      if(!validateCloudData(cd)){
+        addSyncLog('pull','error','Invalid data structure from cloud');
+        setSyncStatus('error','Bad cloud data');
+        return;
+      }
+      const cc=Array.isArray(cd.children)?cd.children:['Malcolm'];
+      const si=cd.items.map(i=>sanitizeCloudItem(i,cc));
+      const cm=new Map(si.map(i=>[i.id,i])),lm=new Map(data.items.map(i=>[i.id,i])),mm=new Map();
+      let newFromCloud=0,conflicts=0;
+      for(const[id,item]of cm){
+        const l=lm.get(id);
+        if(!l){mm.set(id,item);newFromCloud++;continue}
+        if(item._deleted||l._deleted){
+          const w=item._deleted?item:l;
+          mm.set(id,{...w,_deleted:true,_deletedAt:w._deletedAt||new Date().toISOString()});
+          continue;
+        }
+        const ct=new Date(item.updatedAt||item.createdAt),lt=new Date(l.updatedAt||l.createdAt);
+        if(ct!==lt)conflicts++;
+        mm.set(id,lt>ct?l:item);
+      }
+      for(const[id,item]of lm){if(!mm.has(id))mm.set(id,item)}
+      _ss=true;
+      data.items=Array.from(mm.values());
+      data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      cc.forEach(c=>{if(!data.children.includes(c))data.children.push(c)});
+      data.children.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+      if(Array.isArray(cd.tags)){cd.tags.forEach(t=>{const cl=String(t).slice(0,100);if(cl&&!data.tags.includes(cl))data.tags.push(cl)})}
+      saveData(data);
+      _ss=false;
+      const detail='Pull OK · '+si.length+' cloud items · '+newFromCloud+' new · '+conflicts+' conflicts';
+      addSyncLog('pull','ok',detail);
+      pushToCloud(data);
+      renderChildDropdown();
+      renderCurrentView();
+      lastSyncTime=new Date();
+      setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()));
+    })
+    .catch(e=>{
+      console.error('Sync pull error:',e);
+      _ss=false;
+      const msg=e.message||'Unknown error';
+      addSyncLog('pull','error',msg);
+      // Give a more useful error message
+      let friendly='Pull failed';
+      if(msg.includes('Failed to fetch')||msg.includes('NetworkError'))friendly='No internet';
+      else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))friendly='Access denied — check key';
+      else if(msg.includes('HTTP 404'))friendly='Script not found — check URL';
+      else if(msg.includes('HTTP 5'))friendly='Google server error — try again';
+      setSyncStatus('error',friendly);
+    });
+}
+
+function pushToCloud(d){
+  if(!cloudUrl||!validateCloudUrl(cloudUrl))return Promise.resolve();
+  const secret=getCloudSecret();
+  const payload={...d,key:secret,_pushedAt:new Date().toISOString()};
+  return fetch(cloudUrl,{method:'POST',redirect:'follow',body:JSON.stringify(payload)})
+    .then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(rd=>{
+      if(rd.error){
+        addSyncLog('push','error',rd.error);
+        setSyncStatus('error','Push: '+rd.error.slice(0,30));
+        return;
+      }
+      lastSyncTime=new Date();
+      addSyncLog('push','ok',d.items.filter(i=>!i._deleted).length+' items pushed');
+      setSyncStatus('ok','Synced '+formatTimeShort(lastSyncTime.toISOString()));
+    })
+    .catch(e=>{
+      console.error('Push error:',e);
+      const msg=e.message||'Unknown error';
+      addSyncLog('push','error',msg);
+      let friendly='Push failed';
+      if(msg.includes('Failed to fetch')||msg.includes('NetworkError'))friendly='No internet';
+      else if(msg.includes('HTTP 4'))friendly='Push rejected — check URL/key';
+      setSyncStatus('error',friendly);
+    });
+}
+
+function triggerCloudSync(d){
+  if(!cloudUrl||!validateCloudUrl(cloudUrl))return;
+  setSyncStatus('loading','Saving…');
+  clearTimeout(syncTimeout);
+  syncTimeout=setTimeout(()=>pushToCloud(d),1500);
+}
+
+// Test connection without saving — used in diagnostics
+function testCloudConnection(url,key){
+  return new Promise((resolve)=>{
+    if(!validateCloudUrl(url)){resolve({ok:false,msg:'Invalid URL format — must be a script.google.com URL'});return}
+    const testUrl=url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(key||'');
+    const t=setTimeout(()=>resolve({ok:false,msg:'Timed out after 10s — script may be sleeping or URL wrong'}),10000);
+    fetch(testUrl,{method:'GET',redirect:'follow'})
+      .then(r=>{
+        clearTimeout(t);
+        if(!r.ok)throw new Error('HTTP '+r.status);
+        return r.json();
+      })
+      .then(cd=>{
+        if(cd.error){resolve({ok:false,msg:'Script returned error: '+cd.error});return}
+        if(!Array.isArray(cd.items)){resolve({ok:false,msg:'Unexpected response shape — is this the right script?'});return}
+        resolve({ok:true,msg:'Connected! Found '+cd.items.length+' item(s) on cloud.'});
+      })
+      .catch(e=>{
+        clearTimeout(t);
+        let msg=e.message||'Network error';
+        if(msg.includes('Failed to fetch'))msg='Could not reach Google — check your internet connection';
+        else if(msg.includes('HTTP 401')||msg.includes('HTTP 403'))msg='Access denied — wrong key, or script not set to "Anyone can access"';
+        else if(msg.includes('HTTP 404'))msg='Script not found — URL may be wrong or script was deleted';
+        resolve({ok:false,msg});
+      });
+  });
+}
+
+function showSyncDiagnostics(){
+  const log=getSyncLog();
+  const hasCloud=!!(cloudUrl&&validateCloudUrl(cloudUrl));
+  modal.open(
+    'Sync Diagnostics',
+    hasCloud?'Cloud is configured. Recent sync history below.':'No cloud URL configured. Set one via the Cloud button.',
+    ct=>{
+      // Status summary
+      const summary=document.createElement('div');
+      summary.style.cssText='font-size:13px;margin-bottom:12px;padding:10px;background:var(--bg-hover);border-radius:8px;line-height:1.7';
+      summary.innerHTML=
+        '<b>URL:</b> '+(hasCloud?'✓ Configured':'✗ Not set')+'<br>'+
+        '<b>Key:</b> '+(getCloudSecret()?'✓ Set':'✗ Not set')+'<br>'+
+        '<b>Last sync:</b> '+(lastSyncTime?formatTime(lastSyncTime.toISOString()):'Never this session')+'<br>'+
+        '<b>Local items:</b> '+data.items.filter(i=>!i._deleted).length;
+      ct.appendChild(summary);
+
+      // Test connection button
+      if(hasCloud){
+        const testBtn=document.createElement('button');
+        testBtn.className='subtle-btn';
+        testBtn.style.cssText='width:100%;margin-bottom:12px;font-size:13px';
+        testBtn.textContent='▶ Test Connection Now';
+        testBtn.addEventListener('click',async()=>{
+          testBtn.textContent='Testing…';
+          testBtn.disabled=true;
+          const result=await testCloudConnection(cloudUrl,getCloudSecret());
+          testBtn.textContent=result.ok?'✓ '+result.msg:'✗ '+result.msg;
+          testBtn.style.color=result.ok?'var(--cat-first)':'var(--danger)';
+          testBtn.disabled=false;
+        });
+        ct.appendChild(testBtn);
+      }
+
+      // Sync log
+      const logTitle=document.createElement('div');
+      logTitle.style.cssText='font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:6px';
+      logTitle.textContent='Recent Sync Events';
+      ct.appendChild(logTitle);
+
+      const logWrap=document.createElement('div');
+      logWrap.style.cssText='max-height:200px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.6;background:var(--bg-hover);border-radius:8px;padding:10px';
+      if(!log.length){
+        logWrap.textContent='No sync events recorded yet.';
+        logWrap.style.color='var(--text-muted)';
+      } else {
+        logWrap.innerHTML=log.map(e=>{
+          const t=new Date(e.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+          const d=new Date(e.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+          const icon=e.status==='ok'?'✓':'✗';
+          const col=e.status==='ok'?'var(--cat-first)':'var(--danger)';
+          return'<div style="border-bottom:1px solid var(--border-subtle);padding:3px 0"><span style="color:'+col+'">'+icon+'</span> <span style="color:var(--text-muted)">'+d+' '+t+'</span> <b>'+e.direction+'</b> '+eh(e.detail)+'</div>';
+        }).join('');
+      }
+      ct.appendChild(logWrap);
+
+      // Clear log button
+      if(log.length){
+        const clearBtn=document.createElement('button');
+        clearBtn.className='subtle-btn';
+        clearBtn.style.cssText='margin-top:10px;font-size:12px';
+        clearBtn.textContent='Clear Log';
+        clearBtn.addEventListener('click',()=>{clearSyncLog();modal.close();showSyncDiagnostics()});
+        ct.appendChild(clearBtn);
+      }
+
+      // Common fixes section
+      const fixTitle=document.createElement('div');
+      fixTitle.style.cssText='font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:12px 0 6px';
+      fixTitle.textContent='Common Fixes';
+      ct.appendChild(fixTitle);
+      const fixes=document.createElement('div');
+      fixes.style.cssText='font-size:12px;color:var(--text-secondary);line-height:1.8';
+      fixes.innerHTML=
+        '• "No internet" → Check wifi/data, try again<br>'+
+        '• "Access denied" → Re-deploy script as <i>Anyone</i><br>'+
+        '• "Script not found" → Redeploy & copy new URL<br>'+
+        '• "Bad cloud data" → Script may need updating<br>'+
+        '• Other device not seeing data → They need to tap Sync<br>'+
+        '• Still stuck → Use Backup/Restore to transfer manually';
+      ct.appendChild(fixes);
+    },
+    null,'Close',false
+  );
+  // Hide confirm, only show close as cancel
+  document.getElementById('modal-confirm').classList.add('hidden');
+  document.getElementById('modal-cancel').textContent='Close';
+}
+
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudUrl)fetchCloudData()});
+if(cloudUrl&&validateCloudUrl(cloudUrl)){setSyncStatus('loading','Connecting…');setTimeout(fetchCloudData,500)}
 
 // CORE LOGIC
 function addItem(text,category,tags,dateOverride){const item={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text:text.trim(),category:category||'',tags:(tags||[]).map(t=>t.trim()).filter(Boolean),childName:activeChild,createdAt:dateOverride||new Date().toISOString(),updatedAt:new Date().toISOString(),pinned:false};data.items.unshift(item);data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));item.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});data.tags.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));saveData(data);return item}
@@ -477,7 +746,25 @@ document.getElementById('import-btn').addEventListener('click',()=>document.getE
 document.getElementById('import-file').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imp=JSON.parse(reader.result);if(imp.items&&Array.isArray(imp.items)){const ids=new Set(data.items.map(i=>i.id));let c=0;imp.items.forEach(i=>{if(!ids.has(i.id)){if(!Array.isArray(i.tags))i.tags=i.tag?[i.tag]:[];if(!i.category)i.category='';if(!i.createdAt)i.createdAt=new Date().toISOString();if(!i.childName)i.childName=activeChild;i.pinned=!!i.pinned;delete i.tag;data.items.push(i);c++}});if(Array.isArray(imp.children))imp.children.forEach(ch=>{if(!data.children.includes(ch))data.children.push(ch)});if(imp.tags)imp.tags.forEach(t=>{if(!data.tags.includes(t))data.tags.push(t)});data.items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));saveData(data);renderChildDropdown();renderCurrentView();showFlash('Imported '+c+' moments')}else throw new Error('Invalid')}catch(err){alert('Invalid file.')}};reader.readAsText(file);e.target.value=''});
 document.getElementById('clear-btn').addEventListener('click',()=>{modal.open('Reset App?','Deletes all data locally. Cloud data remains unless synced.',ct=>{const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.placeholder='Type DELETE';inp.addEventListener('input',()=>{modal.confirm.disabled=inp.value!=='DELETE';modal.confirm.style.opacity=inp.value==='DELETE'?'1':'0.4'});ct.appendChild(inp)},()=>{data={children:['Malcolm'],tags:[],items:[]};saveData(data);activeChild='Malcolm';localStorage.setItem(ACTIVE_CHILD_KEY,activeChild);setActiveChild(activeChild);renderCurrentView()},'Delete',true);modal.confirm.disabled=true;modal.confirm.style.opacity='0.4'});
 document.getElementById('purge-btn').addEventListener('click',()=>{const n=data.items.filter(i=>i._deleted).length;modal.open('Empty trash?','Permanently remove '+n+' items.',null,()=>{purgeAllDeleted();renderCurrentView();showFlash('Trash emptied')},'Empty',true)});
-document.getElementById('cloud-btn').addEventListener('click',()=>{modal.open('Cloud Sync','Enter Google Apps Script details.',ct=>{const ul=document.createElement('label');ul.textContent='URL';ul.style.fontSize='12px';ct.appendChild(ul);const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.value=cloudUrl;inp.id='cloud-url';ct.appendChild(inp);const kl=document.createElement('label');kl.textContent='Key';kl.style.fontSize='12px';ct.appendChild(kl);const ki=document.createElement('input');ki.type='password';ki.className='modal-input';ki.value=getCloudSecret();ki.id='cloud-key';ct.appendChild(ki)},()=>{const u=document.getElementById('cloud-url').value.trim(),k=document.getElementById('cloud-key').value.trim();if(u){localStorage.setItem(CLOUD_URL_KEY,u);localStorage.setItem(CLOUD_KEY_STORAGE,k);cloudUrl=u;fetchCloudData()}else{localStorage.removeItem(CLOUD_URL_KEY);localStorage.removeItem(CLOUD_KEY_STORAGE);cloudUrl='';setSyncStatus('','Offline')}},'Save')});
+document.getElementById('cloud-btn').addEventListener('click',()=>{modal.open('Cloud Sync','Connect to your Google Apps Script to sync between devices.',ct=>{
+  const ul=document.createElement('label');ul.textContent='URL';ul.style.fontSize='12px';ct.appendChild(ul);
+  const inp=document.createElement('input');inp.type='text';inp.className='modal-input';inp.value=cloudUrl;inp.id='cloud-url';inp.placeholder='https://script.google.com/macros/s/…';ct.appendChild(inp);
+  const kl=document.createElement('label');kl.textContent='Secret Key (optional)';kl.style.fontSize='12px';ct.appendChild(kl);
+  const ki=document.createElement('input');ki.type='password';ki.className='modal-input';ki.value=getCloudSecret();ki.id='cloud-key';ki.placeholder='Leave blank if you did not set one';ct.appendChild(ki);
+  const testWrap=document.createElement('div');testWrap.style.cssText='display:flex;gap:8px;align-items:center;margin-bottom:8px';
+  const testBtn=document.createElement('button');testBtn.className='subtle-btn';testBtn.type='button';testBtn.style.cssText='font-size:12px;white-space:nowrap';testBtn.textContent='Test Connection';
+  const testResult=document.createElement('span');testResult.style.cssText='font-size:12px;line-height:1.3;color:var(--text-secondary)';
+  testWrap.appendChild(testBtn);testWrap.appendChild(testResult);ct.appendChild(testWrap);
+  testBtn.addEventListener('click',async()=>{
+    testBtn.textContent='Testing…';testBtn.disabled=true;testResult.textContent='';
+    const result=await testCloudConnection(inp.value.trim(),ki.value.trim());
+    testBtn.textContent='Test Connection';testBtn.disabled=false;
+    testResult.style.color=result.ok?'var(--cat-first)':'var(--danger)';
+    testResult.textContent=(result.ok?'✓ ':'✗ ')+result.msg;
+  });
+},()=>{const u=document.getElementById('cloud-url').value.trim(),k=document.getElementById('cloud-key').value.trim();if(u){localStorage.setItem(CLOUD_URL_KEY,u);localStorage.setItem(CLOUD_KEY_STORAGE,k);cloudUrl=u;fetchCloudData()}else{localStorage.removeItem(CLOUD_URL_KEY);localStorage.removeItem(CLOUD_KEY_STORAGE);cloudUrl='';setSyncStatus('','No cloud')}},'Save')});
+
+document.getElementById('diagnose-btn').addEventListener('click',()=>showSyncDiagnostics());
 
 // INIT
 setActiveChild(activeChild);renderChildDropdown();updateBadge();updateStats();
