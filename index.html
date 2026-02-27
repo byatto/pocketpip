@@ -254,6 +254,105 @@
     .undo-toast { bottom: 100px; }
   }
   .hidden{display:none!important}
+
+  /* ── PINNED CARD ──────────────────────────────────────── */
+  .item-card.is-pinned {
+    border-left: 3px solid var(--accent);
+    padding-left: 13px; /* compensate so text doesn't shift */
+  }
+  .pin-indicator {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--accent); font-size: 10px; font-weight: 600;
+    text-transform: lowercase; letter-spacing: .04em;
+    margin-bottom: 5px; opacity: .7;
+  }
+  .pin-indicator svg { width: 10px; height: 10px; fill: currentColor; }
+
+  /* ── SETTINGS PANEL (slide-in from right) ─────────────── */
+  .settings-panel-overlay {
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(0,0,0,0);
+    display: none;
+  }
+  .settings-panel-overlay.open { display: block; }
+  .settings-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(340px, 92vw);
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border-subtle);
+    box-shadow: -8px 0 32px rgba(0,0,0,.12);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 601;
+  }
+  .settings-panel-overlay.open .settings-panel { transform: translateX(0); }
+  .settings-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .settings-panel-title {
+    font-family: var(--font-display); font-size: 20px; font-weight: 500;
+  }
+  .settings-panel-close {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: var(--bg-hover); color: var(--text-secondary);
+    cursor: pointer; font-size: 20px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition);
+  }
+  .settings-panel-close:hover { background: var(--border); color: var(--text); }
+  .settings-panel-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .settings-section-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--text-muted);
+    padding: 16px 20px 4px;
+  }
+  .settings-row-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 20px; cursor: pointer;
+    transition: background var(--transition);
+    border: none; background: transparent; width: 100%; text-align: left;
+    color: var(--text); font-family: var(--font); font-size: 14px;
+  }
+  .settings-row-item:hover { background: var(--bg-hover); }
+  .settings-row-item.danger { color: var(--danger); }
+  .settings-row-item svg {
+    width: 18px; height: 18px; fill: currentColor;
+    color: var(--text-secondary); flex-shrink: 0;
+  }
+  .settings-row-item.danger svg { color: var(--danger); }
+  .settings-row-item-label { flex: 1; line-height: 1.3; }
+  .settings-row-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .settings-panel-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-subtle);
+    font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+  }
+  /* cog button in header */
+  .settings-cog-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: none;
+    background: var(--bg-hover); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--transition); color: var(--text-secondary);
+  }
+  .settings-cog-btn:hover { background: var(--border-subtle); color: var(--text); }
+  .settings-cog-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+  /* ── TRASH PANEL ITEMS ────────────────────────────────── */
+  .trash-item {
+    padding: 12px; border: 1px solid var(--border-subtle);
+    border-radius: 8px; margin-bottom: 8px; background: var(--bg-surface);
+  }
+  .trash-item-text {
+    font-size: 14px; line-height: 1.5; margin-bottom: 8px;
+    color: var(--text-secondary); white-space: pre-wrap; word-break: break-word;
+  }
+  .trash-item-meta {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .trash-item-actions { display: flex; gap: 6px; margin-left: auto; }
 </style>
 </head>
 <body data-theme="light">
@@ -273,6 +372,9 @@
         <button data-view="review">Review <span class="badge hidden" id="review-badge-desk">0</span></button>
         <button data-view="timeline">Timeline</button>
       </nav>
+      <button class="settings-cog-btn" id="settings-btn" title="Settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a6.97 6.97 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </button>
     </div>
   </header>
   <main>
@@ -330,16 +432,79 @@
   
   <div class="settings-bar">
     <div class="settings-row">
-      <button class="subtle-btn" id="manual-sync-btn"><span id="sync-label">Sync</span></button>
+      <button class="subtle-btn" id="manual-sync-btn"><span id="sync-label">No cloud</span></button>
       <span class="stats-text" id="stats-text"></span>
     </div>
-    <div class="settings-row" style="justify-content: flex-start; gap: 8px;">
-      <button class="subtle-btn" id="cloud-btn">Cloud</button>
-      <button class="subtle-btn" id="diagnose-btn">Diagnose</button>
-      <button class="subtle-btn" id="export-btn">Backup</button>
-      <button class="subtle-btn" id="import-btn">Restore</button>
-      <button class="subtle-btn danger" id="purge-btn" style="display:none">Empty Trash</button>
-      <button class="subtle-btn danger" id="clear-btn">Reset</button>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-panel-overlay" id="settings-panel-overlay">
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-panel-header">
+      <span class="settings-panel-title">Settings</span>
+      <button class="settings-panel-close" id="settings-panel-close">&times;</button>
+    </div>
+    <div class="settings-panel-body">
+
+      <div class="settings-section-label">Sync</div>
+      <button class="settings-row-item" id="cloud-btn">
+        <svg viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+        <div class="settings-row-item-label">
+          Cloud Sync
+          <div class="settings-row-item-sub">Configure Google Apps Script</div>
+        </div>
+      </button>
+      <button class="settings-row-item" id="diagnose-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <div class="settings-row-item-label">
+          Sync Diagnostics
+          <div class="settings-row-item-sub">Test connection &amp; view log</div>
+        </div>
+      </button>
+
+      <div class="settings-section-label">Data</div>
+      <button class="settings-row-item" id="digest-btn">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        <div class="settings-row-item-label">
+          Send Weekly Digest
+          <div class="settings-row-item-sub">Email this week's moments</div>
+        </div>
+      </button>
+      <button class="settings-row-item" id="export-btn">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <div class="settings-row-item-label">
+          Backup
+          <div class="settings-row-item-sub">Download all data as JSON</div>
+        </div>
+      </button>
+      <button class="settings-row-item" id="import-btn">
+        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+        <div class="settings-row-item-label">
+          Restore
+          <div class="settings-row-item-sub">Import from JSON backup</div>
+        </div>
+      </button>
+      <button class="settings-row-item" id="trash-btn">
+        <svg viewBox="0 0 24 24"><path d="M15 16h4v2h-4v-2zm0-8h7v2h-7V8zm0 4h6v2h-6v-2zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12V5z"/></svg>
+        <div class="settings-row-item-label">
+          Trash
+          <div class="settings-row-item-sub" id="trash-sub">View &amp; restore deleted items</div>
+        </div>
+      </button>
+
+      <div class="settings-section-label">Danger Zone</div>
+      <button class="settings-row-item danger" id="clear-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/></svg>
+        <div class="settings-row-item-label">
+          Reset App
+          <div class="settings-row-item-sub">Wipe all local data</div>
+        </div>
+      </button>
+
+    </div>
+    <div class="settings-panel-footer" id="settings-panel-footer">
+      Loading…
     </div>
   </div>
 </div>
@@ -1536,9 +1701,15 @@ function renderTimeline() {
         : eh(item.text);
 
       return `
-        <div class="item-card ${item.pinned ? 'pinned' : ''}" data-id="${ea(item.id)}">
+        <div class="item-card ${item.pinned ? 'is-pinned' : ''}" data-id="${ea(item.id)}">
+          ${item.pinned ? `
+          <div class="pin-indicator">
+            <svg viewBox="0 0 24 24">
+              <path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/>
+            </svg>
+            pinned
+          </div>` : ''}
           <div class="item-text">
-            ${item.pinned ? '<span style="color:var(--accent);margin-right:4px">&#9873;</span> ' : ''}
             ${displayText}
           </div>
           <div class="item-footer">
@@ -1616,7 +1787,7 @@ function updateBadge() {
 }
 
 function updateStats() {
-  const childItems  = getChildItems();
+  const childItems   = getChildItems();
   const deletedCount = data.items.filter(i => i._deleted).length;
 
   let text = childItems.length + ' moments';
@@ -1624,7 +1795,11 @@ function updateStats() {
   if (deletedCount > 0) text += ' · ' + deletedCount + ' in trash';
 
   document.getElementById('stats-text').textContent = text;
-  document.getElementById('purge-btn').style.display = deletedCount > 0 ? '' : 'none';
+
+  // Keep settings panel footer in sync if it's open
+  if (settingsPanelOverlay && settingsPanelOverlay.classList.contains('open')) {
+    updateSettingsFooter();
+  }
 }
 
 // HTML-escape for inserting user content into innerHTML
@@ -1717,6 +1892,7 @@ modal.overlay.addEventListener('click', e => { if (e.target === modal.overlay) m
 
 // Backup — download full data as JSON
 document.getElementById('export-btn').addEventListener('click', () => {
+  closeSettingsPanel();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -1728,6 +1904,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
 
 // Restore — import from JSON backup (merges by id, won't duplicate)
 document.getElementById('import-btn').addEventListener('click', () => {
+  closeSettingsPanel();
   document.getElementById('import-file').click();
 });
 
@@ -1779,6 +1956,7 @@ document.getElementById('import-file').addEventListener('change', e => {
 
 // Reset — wipe all local data (cloud data stays until next sync)
 document.getElementById('clear-btn').addEventListener('click', () => {
+  closeSettingsPanel();
   modal.open(
     'Reset App?',
     'Deletes all data locally. Cloud data remains unless synced.',
@@ -1823,6 +2001,7 @@ document.getElementById('purge-btn').addEventListener('click', () => {
 
 // Cloud settings
 document.getElementById('cloud-btn').addEventListener('click', () => {
+  closeSettingsPanel();
   modal.open(
     'Cloud Sync',
     'Connect to your Google Apps Script to sync between devices.',
@@ -1901,7 +2080,304 @@ document.getElementById('cloud-btn').addEventListener('click', () => {
 });
 
 // Sync diagnostics
-document.getElementById('diagnose-btn').addEventListener('click', () => showSyncDiagnostics());
+document.getElementById('diagnose-btn').addEventListener('click', () => { closeSettingsPanel(); showSyncDiagnostics(); });
+
+
+// =============================================================================
+// SETTINGS PANEL
+// =============================================================================
+
+const settingsPanelOverlay = document.getElementById('settings-panel-overlay');
+
+document.getElementById('settings-btn').addEventListener('click', () => {
+  updateSettingsFooter();
+  settingsPanelOverlay.classList.add('open');
+});
+
+document.getElementById('settings-panel-close').addEventListener('click', () => {
+  settingsPanelOverlay.classList.remove('open');
+});
+
+settingsPanelOverlay.addEventListener('click', e => {
+  // Close when clicking the backdrop (not the panel itself)
+  if (e.target === settingsPanelOverlay) settingsPanelOverlay.classList.remove('open');
+});
+
+function updateSettingsFooter() {
+  const active  = data.items.filter(i => !i._deleted).length;
+  const deleted = data.items.filter(i => i._deleted).length;
+  const footer  = document.getElementById('settings-panel-footer');
+  let text = active + ' moments';
+  if (data.children.length > 1) text += ' across ' + data.children.length + ' children';
+  if (deleted > 0) text += ' · ' + deleted + ' in trash';
+  if (footer) footer.textContent = text;
+
+  // Update trash sub-label
+  const trashSub = document.getElementById('trash-sub');
+  if (trashSub) {
+    trashSub.textContent = deleted > 0
+      ? deleted + ' item' + (deleted !== 1 ? 's' : '') + ' in trash'
+      : 'Trash is empty';
+  }
+}
+
+function closeSettingsPanel() {
+  settingsPanelOverlay.classList.remove('open');
+}
+
+
+// =============================================================================
+// TRASH VIEW
+// =============================================================================
+
+document.getElementById('trash-btn').addEventListener('click', () => {
+  closeSettingsPanel();
+  openTrashView();
+});
+
+function openTrashView() {
+  // Work from a live-updating local reference so restore/delete updates the list
+  let deleted = data.items.filter(i => i._deleted);
+
+  function purgeAll() {
+    data.items = data.items.filter(i => !i._deleted);
+    saveData();
+    renderCurrentView();
+    modal.close();
+    showFlash('Trash emptied');
+  }
+
+  modal.open(
+    'Trash · ' + deleted.length + ' item' + (deleted.length !== 1 ? 's' : ''),
+    '',
+    ct => {
+      function renderTrashItems() {
+        // Refresh from live data
+        deleted = data.items.filter(i => i._deleted);
+
+        // Update modal title
+        const titleEl = document.getElementById('modal-title');
+        if (titleEl) titleEl.textContent = 'Trash · ' + deleted.length + ' item' + (deleted.length !== 1 ? 's' : '');
+
+        // Show/hide Purge All button
+        const confirmBtn = document.getElementById('modal-confirm');
+        if (confirmBtn) {
+          confirmBtn.classList.toggle('hidden', deleted.length === 0);
+        }
+
+        if (!deleted.length) {
+          ct.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:24px 0;">Trash is empty</p>';
+          updateSettingsFooter();
+          return;
+        }
+
+        ct.innerHTML = `
+          <div style="max-height:50vh;overflow-y:auto;">
+            ${deleted.map(item => {
+              const deletedDate = item._deletedAt
+                ? new Date(item._deletedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                : '?';
+              const catLabel = item.category
+                ? item.category.charAt(0).toUpperCase() + item.category.slice(1)
+                : 'Uncategorised';
+              const catClass = item.category || '';
+              return `
+                <div class="trash-item">
+                  <div class="trash-item-text">${eh(item.text)}</div>
+                  <div class="trash-item-meta">
+                    <span class="cat-badge ${catClass}">${catLabel}</span>
+                    ${(item.tags || []).map(t => `<span class="item-tag">${eh(t)}</span>`).join('')}
+                    <span style="font-size:11px;color:var(--text-muted);">Deleted ${deletedDate}</span>
+                    <div class="trash-item-actions">
+                      <button class="subtle-btn trash-restore" data-id="${ea(item.id)}" style="font-size:11px;padding:4px 10px;">Restore</button>
+                      <button class="subtle-btn danger trash-delete-one" data-id="${ea(item.id)}" style="font-size:11px;padding:4px 10px;">Delete</button>
+                    </div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>`;
+
+        // Restore individual item
+        ct.querySelectorAll('.trash-restore').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const item = data.items.find(i => i.id === btn.dataset.id);
+            if (item) { item._deleted = false; item._deletedAt = null; saveData(); renderCurrentView(); }
+            renderTrashItems();
+            showFlash('Restored');
+          });
+        });
+
+        // Permanently delete one item
+        ct.querySelectorAll('.trash-delete-one').forEach(btn => {
+          btn.addEventListener('click', () => {
+            data.items = data.items.filter(i => i.id !== btn.dataset.id);
+            saveData(); renderCurrentView();
+            renderTrashItems();
+          });
+        });
+
+        updateSettingsFooter();
+      }
+
+      renderTrashItems();
+    },
+    deleted.length ? purgeAll : null,
+    deleted.length ? 'Purge All' : 'Close',
+    deleted.length > 0
+  );
+}
+
+
+// =============================================================================
+// WEEKLY DIGEST
+// =============================================================================
+
+document.getElementById('digest-btn').addEventListener('click', () => {
+  closeSettingsPanel();
+  sendWeeklyDigest();
+});
+
+function buildDigestHtml(items, childName) {
+  // Group items by category for a tidy email layout
+  const grouped = {};
+  items.forEach(item => {
+    const key = item.category || 'uncategorised';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
+  });
+
+  const catOrder    = ['first', 'quote', 'funny', 'neat', 'note', 'uncategorised'];
+  const catLabels   = { first: 'Firsts', quote: 'Quotes', funny: 'Funny', neat: 'Neat', note: 'Notes', uncategorised: 'Inbox' };
+  const catColours  = { first: '#7a8c5a', quote: '#7a7260', funny: '#c49a3c', neat: '#9a7b5a', note: '#6e8898', uncategorised: '#9a9484' };
+
+  const weekStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  let sectionsHtml = '';
+  catOrder.forEach(cat => {
+    if (!grouped[cat] || !grouped[cat].length) return;
+    const colour = catColours[cat];
+    const label  = catLabels[cat];
+    const rows   = grouped[cat].map(item => {
+      const date = new Date(item.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const tags = (item.tags || []).map(t => `<span style="background:#f0f0f0;padding:1px 6px;border-radius:4px;font-size:11px;">${t}</span>`).join(' ');
+      const isQuote = cat === 'quote';
+      const textDisplay = isQuote
+        ? `<em style="font-size:16px;">"${item.text}"</em>`
+        : `<span style="font-size:15px;">${item.text}</span>`;
+      return `
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #eee;vertical-align:top;">
+            ${textDisplay}
+            <div style="margin-top:4px;color:#999;font-size:12px;">${date}${tags ? '&nbsp;&nbsp;' + tags : ''}</div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    sectionsHtml += `
+      <tr><td style="padding:20px 0 8px;">
+        <span style="background:${colour}20;color:${colour};font-size:10px;font-weight:700;
+          text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:4px;">${label}</span>
+      </td></tr>
+      ${rows}`;
+  });
+
+  return `
+    <!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+    <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      max-width:600px;margin:0 auto;padding:24px;color:#2a2925;background:#f5f2ec;">
+      <div style="background:#fff;border-radius:12px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <div style="width:28px;height:28px;border-radius:8px;
+            background:linear-gradient(135deg,#7a8c5a,#64744a);
+            display:flex;align-items:center;justify-content:center;
+            font-family:Georgia,serif;font-style:italic;color:#fff;font-size:16px;">p</div>
+          <span style="font-family:Georgia,serif;font-size:18px;font-weight:600;">pocketpip</span>
+        </div>
+        <p style="color:#9a9484;font-size:13px;margin:0 0 24px;">
+          ${childName}'s week · ${weekStr}
+        </p>
+        <table style="width:100%;border-collapse:collapse;">
+          ${sectionsHtml}
+        </table>
+        <p style="color:#ccc;font-size:11px;margin-top:28px;text-align:center;">
+          ${items.length} moment${items.length !== 1 ? 's' : ''} · sent from pocketpip
+        </p>
+      </div>
+    </body></html>`;
+}
+
+function sendWeeklyDigest() {
+  if (!cloudUrl || !validateCloudUrl(cloudUrl)) {
+    modal.open(
+      'Cloud Required',
+      'The weekly digest is sent via your Google Apps Script. Please configure Cloud Sync first.',
+      null, null, 'OK', false
+    );
+    return;
+  }
+
+  // Gather this week's items for the active child
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  const weekItems = data.items.filter(i =>
+    !i._deleted &&
+    i.childName === activeChild &&
+    new Date(i.createdAt) >= oneWeekAgo
+  );
+
+  if (!weekItems.length) {
+    modal.open(
+      'Nothing to send',
+      'No moments captured for ' + activeChild + ' in the past 7 days.',
+      null, null, 'OK', false
+    );
+    return;
+  }
+
+  // Confirm before sending
+  modal.open(
+    'Send Digest?',
+    weekItems.length + ' moment' + (weekItems.length !== 1 ? 's' : '') +
+    ' from the past week will be emailed to the address set in your Apps Script (DIGEST_RECIPIENT).',
+    null,
+    () => {
+      const digestHtml = buildDigestHtml(weekItems, activeChild);
+      const payload = {
+        key:         getCloudSecret(),
+        action:      'digest',
+        digestHtml:  digestHtml,
+        itemCount:   weekItems.length,
+        generatedAt: new Date().toISOString(),
+      };
+
+      showFlash('Sending digest…');
+
+      fetch(cloudUrl, {
+        method:   'POST',
+        redirect: 'follow',
+        body:     JSON.stringify(payload),
+      })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.success) {
+            showFlash('Digest sent ✓');
+            addSyncLog('digest', 'ok', weekItems.length + ' items sent');
+          } else {
+            showFlash('Digest failed');
+            addSyncLog('digest', 'error', resp.error || 'Unknown error');
+            alert('Digest failed: ' + (resp.error || 'Unknown error'));
+          }
+        })
+        .catch(e => {
+          showFlash('Digest failed');
+          addSyncLog('digest', 'error', e.message);
+          alert('Digest error: ' + e.message);
+        });
+    },
+    'Send', false
+  );
+}
 
 
 // =============================================================================
