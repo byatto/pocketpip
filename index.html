@@ -1990,18 +1990,7 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   modal.confirm.style.opacity = '0.4';
 });
 
-// Empty trash — permanently remove soft-deleted items
-document.getElementById('purge-btn').addEventListener('click', () => {
-  const count = data.items.filter(i => i._deleted).length;
-  modal.open(
-    'Empty trash?',
-    'Permanently remove ' + count + ' items.',
-    null,
-    () => { purgeAllDeleted(); renderCurrentView(); showFlash('Trash emptied'); },
-    'Empty',
-    true
-  );
-});
+// Note: purge (empty trash) is handled inside openTrashView() in the settings panel.
 
 // Cloud settings
 document.getElementById('cloud-btn').addEventListener('click', () => {
