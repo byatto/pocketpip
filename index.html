@@ -270,8 +270,9 @@
 
   /* ── SETTINGS PANEL (slide-in from right) ─────────────── */
   .settings-panel-overlay {
-    position: fixed; inset: 0; z-index: 600;
-    background: rgba(0,0,0,0);
+    position: fixed; inset: 0; z-index: 700;
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(1px);
     display: none;
   }
   .settings-panel-overlay.open { display: block; }
@@ -280,11 +281,12 @@
     width: min(340px, 92vw);
     background: var(--bg-elevated);
     border-left: 1px solid var(--border-subtle);
-    box-shadow: -8px 0 32px rgba(0,0,0,.12);
+    box-shadow: -8px 0 32px rgba(0,0,0,.2);
     display: flex; flex-direction: column;
     transform: translateX(100%);
     transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    z-index: 601;
+    z-index: 701;
+    overflow-y: auto;
   }
   .settings-panel-overlay.open .settings-panel { transform: translateX(0); }
   .settings-panel-header {
@@ -311,10 +313,12 @@
   }
   .settings-row-item {
     display: flex; align-items: center; gap: 14px;
-    padding: 13px 20px; cursor: pointer;
+    padding: 14px 20px; cursor: pointer;
     transition: background var(--transition);
     border: none; background: transparent; width: 100%; text-align: left;
     color: var(--text); font-family: var(--font); font-size: 14px;
+    min-height: 52px; /* good tap target on mobile */
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
   }
   .settings-row-item:hover { background: var(--bg-hover); }
   .settings-row-item.danger { color: var(--danger); }
